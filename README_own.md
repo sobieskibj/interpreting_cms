@@ -7,3 +7,12 @@ pip3 install torch torchvision torchaudio
 conda install mpi4py
 pip3 install -e .
 ```
+
+# Tips
+
+To avoid conflicts with packages named in the same way as dirs in root, use
+
+```python
+import importlib
+hf_datasets = importlib.import_module('datasets')
+```
