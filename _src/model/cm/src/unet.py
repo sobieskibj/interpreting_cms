@@ -353,7 +353,7 @@ class QKVFlashAttention(nn.Module):
         assert (
             self.embed_dim % num_heads == 0
         ), "self.kdim must be divisible by num_heads"
-        import pdb; pdb.set_trace()
+
         self.head_dim = self.embed_dim // num_heads
         assert self.head_dim in [16, 32, 64], "Only support head_dim == 16, 32, or 64"
 
@@ -545,6 +545,9 @@ class UNetModel(nn.Module):
     :param resblock_updown: use residual blocks for up/downsampling.
     :param use_new_attention_order: use a different attention pattern for potentially
                                     increased efficiency.
+    :param use_fp16: if True, convert model to fp16.
+    :param train: if False, changes to evaluation mode with self.eval()
+    :param path_ckpt: if not None, loads weights from this path
     """
 
     def __init__(
@@ -568,6 +571,8 @@ class UNetModel(nn.Module):
         use_scale_shift_norm=False,
         resblock_updown=False,
         use_new_attention_order=False,
+        train = True,
+        path_ckpt = None
     ):
         super().__init__()
 
@@ -598,7 +603,6 @@ class UNetModel(nn.Module):
         )
 
         if self.num_classes is not None:
-            import pdb; pdb.set_trace()
             self.label_emb = nn.Embedding(num_classes, time_embed_dim)
 
         ch = input_ch = int(channel_mult[0] * model_channels)
@@ -738,6 +742,16 @@ class UNetModel(nn.Module):
             nn.SiLU(),
             zero_module(conv_nd(dims, input_ch, out_channels, 3, padding=1)),
         )
+
+        if use_fp16:
+            self.convert_to_fp16()
+
+        if train:
+            self.eval()
+
+        if path_ckpt:
+            state_dict = th.load(path_ckpt, map_location = 'cpu')
+            self.load_state_dict(state_dict)
 
     def convert_to_fp16(self):
         """

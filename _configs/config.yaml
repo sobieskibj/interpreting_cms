@@ -1,11 +1,11 @@
 defaults:
   - _self_
-  - dataset: 
-  - model: cm/imagenet/default
+  - dataset: ???
+  - model: ???
 
 exp:
   run_func: 
-    _target_: experiments.run_cm_sampling
+    _target_: ???
   seed: 42
   log_dir: # set during runtime to automatically created dir
   
@@ -16,4 +16,3 @@ fabric:
 
 wandb:
   project: icm
-  use: true

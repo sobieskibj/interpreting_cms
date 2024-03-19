@@ -13,7 +13,7 @@ mpiexec -n 1 python scripts/image_sample.py \
 --num_channels 192 \
 --num_head_channels 64 \
 --num_res_blocks 3 \
---num_samples 500 \
+--num_samples 1024 \
 --resblock_updown True \
 --use_fp16 True \
 --weight_schedule uniform

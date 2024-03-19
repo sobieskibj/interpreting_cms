@@ -1,0 +1,28 @@
+defaults:
+  - _self_
+  - dataset: cm/imagenet/sampling
+  - model: cm/imagenet/sampling
+  - diffusion: cm/imagenet/sampling
+  - sampler: cm/onestep
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm
+
+exp:
+  run_func: 
+    _target_: experiment.run_cm_sampling
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 1024
+  batch_size: 256
+
+  ts: null
+  rho: 7.0
+  steps: 40
+  clip_denoised: true

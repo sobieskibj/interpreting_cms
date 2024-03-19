@@ -72,7 +72,7 @@ def create_model_and_diffusion(
     sigma_min=0.002,
     sigma_max=80.0,
     distillation=False,
-):
+):  
     model = create_model(
         image_size,
         num_channels,
@@ -136,7 +136,6 @@ def create_model(
     attention_ds = []
     for res in attention_resolutions.split(","):
         attention_ds.append(image_size // int(res))
-
     return UNetModel(
         image_size=image_size,
         in_channels=3,

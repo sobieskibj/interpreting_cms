@@ -1,0 +1,6 @@
+_partial_: true
+_target_: experiment.cm.sampling_utils.sample_heun
+s_churn: 0.0
+s_tmin: 0.0 
+s_tmax: !!float 'inf'
+s_noise: 1.0
