@@ -1,8 +1,10 @@
 # Installation
 
-For a clean conda environment with python 3.9 or 3.10.
+For a clean conda environment with python 3.10.
 
 ```sh
+conda create -n icm python=3.10
+conda activate icm
 pip3 install torch torchvision torchaudio
 conda install mpi4py
 pip3 install -e .
