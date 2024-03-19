@@ -1,6 +1,3 @@
-"""
-Based on: https://github.com/crowsonkb/k-diffusion
-"""
 import numpy as np
 import torch
 
@@ -150,7 +147,7 @@ def sample_onestep(distiller, x, sigmas):
 
 @torch.no_grad()
 def stochastic_iterative_sampler(
-    distiller, x, sigmas, ts, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40):
+        distiller, x, sigmas, ts, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40):
 
     t_max_rho = t_max ** (1 / rho)
     t_min_rho = t_min ** (1 / rho)

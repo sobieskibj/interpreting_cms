@@ -2,6 +2,8 @@ defaults:
   - _self_
   - dataset: ???
   - model: ???
+  - diffusion: ???
+  - sampler: ???
 
 exp:
   run_func: 
