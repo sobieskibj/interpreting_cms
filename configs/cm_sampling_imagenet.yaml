@@ -12,7 +12,7 @@ exp:
   log_dir: # set during runtime to automatically created dir
 
   n_samples: 1024
-  batch_size: 256
+  batch_size: 512
 
   ts: null
   rho: 7.0

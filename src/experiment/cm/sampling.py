@@ -1,6 +1,8 @@
+import wandb
 import torch
 from omegaconf import DictConfig
 from hydra.utils import instantiate
+from torchvision.utils import make_grid
 
 import utils
 from model.cm.src.samplers import append_zero
@@ -24,13 +26,16 @@ def get_dataloader(config, fabric):
     return fabric.setup_dataloaders(instantiate(config.dataset))
 
 def get_class_cond_bool(config):
+    '''
+    Use class conditioning if num_classes was provided
+    '''
     return config.model.num_classes is not None
 
 def get_sampler_name(sampler_target):
     return sampler_target.split('.')[-1]
 
 def get_sigmas_karras(config):
-    """Constructs the noise schedule of Karras et al. (2022)."""
+    '''Constructs the noise schedule of Karras et al. (2022).'''
     steps = config.exp.steps
     sampler_name = get_sampler_name(config.sampler._target_)
     n = steps + 1 if sampler_name == 'progdist' else steps
@@ -42,7 +47,10 @@ def get_sigmas_karras(config):
     return append_zero(sigmas)
 
 def get_denoiser(config, model, diffusion, is_class_cond):
-
+    '''
+    Make denoiser object that includes randomized class
+    conditioning signal.
+    '''
     clip_denoised = config.exp.clip_denoised
     model_kwargs = {}
 
@@ -63,28 +71,44 @@ def get_denoiser(config, model, diffusion, is_class_cond):
 def get_sigma_max(config):
     return config.diffusion.sigma_max
 
+def log_batch_imgs(batch_imgs):
+    grid = make_grid(batch_imgs).permute(1, 2, 0)
+    grid = wandb.Image(grid.numpy(force = True))
+    wandb.log({'samples': grid})
+
 def run(config: DictConfig):
     utils.preprocess_config(config)
     utils.setup_wandb(config)
 
+    # make fabric
     fabric = get_fabric(config)
 
+    # setup components and dataloader
     model, diffusion, sampler = get_components(config, fabric)
-
     dataloader = get_dataloader(config, fabric)
 
+    # automatically move each created tensor to proper device
     with fabric.init_tensor():
         
+        # get class conditioning and sigmas for sampling
         is_class_cond = get_class_cond_bool(config)
         sigmas = get_sigmas_karras(config)
         sigma_max = get_sigma_max(config)
 
         for batch_idx, batch_noise in enumerate(dataloader):
             log.info(f'Batch index: {batch_idx}')
+            # scale standard gaussian noise with max sigma
             batch_x_T = batch_noise * sigma_max
 
+            # create denoiser object separately for each batch
+            # to randomize class conditoning
             denoiser = get_denoiser(config, model, diffusion, is_class_cond)
 
+            log.info('Generating images')
+            # run sampler with the denoiser to obtain images
             batch_x_0 = sampler(denoiser, batch_x_T, sigmas)
             batch_x_0 = batch_x_0.clamp(-1, 1)
-    
+
+            log.info('Logging images')
+            # log samples
+            log_batch_imgs(batch_x_0)
