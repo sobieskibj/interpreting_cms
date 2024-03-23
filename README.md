@@ -13,7 +13,7 @@ cd _legacy
 pip3 install -e .
 cd ..
 pip3 install hydra-core --upgrade
-pip3 install ligthning wandb
+pip3 install ligthning wandb tensorboard
 ```
 
 This ensures that both the legacy CMs code and new codebase can be run with the same environment.
@@ -33,7 +33,7 @@ wget https://openaipublic.blob.core.windows.net/consistency/ct_imagenet64.pt
 To run sampling using our codebase, use
 
 ```sh
-python src/main.py --config-name cm_sampling_imagenet
+HYDRA_FULL_ERROR=1 python src/main.py --config-name cm_sampling_imagenet
 ```
 
 To run sampling with old codebase, use
