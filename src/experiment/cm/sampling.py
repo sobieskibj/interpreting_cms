@@ -3,7 +3,7 @@ from omegaconf import DictConfig
 from hydra.utils import instantiate
 
 import utils
-from .sampling_utils import append_zero
+from model.cm.src.samplers import append_zero
 
 import logging
 log = logging.getLogger(__name__)

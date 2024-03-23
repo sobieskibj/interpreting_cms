@@ -13,7 +13,7 @@ cd _legacy
 pip3 install -e .
 cd ..
 pip3 install hydra-core --upgrade
-pip3 install ligthning wandb tensorboard
+pip install lightning wandb tensorboard
 ```
 
 This ensures that both the legacy CMs code and new codebase can be run with the same environment.
