@@ -1,0 +1,7 @@
+_target_: torch.utils.data.DataLoader
+dataset: 
+  _target_: dataset.cm.StandardNormalSingleNoiseDataset
+  n_samples: ${exp.n_samples}
+  resolution: 64
+batch_size: ${exp.batch_size}
+num_workers: 0

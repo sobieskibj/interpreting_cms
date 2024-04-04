@@ -1,0 +1,29 @@
+defaults:
+  - _self_
+  - dataset: cm/imagenet/h_move
+  - model: cm/imagenet/h_move
+  - diffusion: cm/imagenet/h_move
+  - sampler: cm/onestep
+  - asset: cm/h_move/imagenet/default
+
+exp:
+  run_func: 
+    _target_: experiment.run_cm_h_move
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 16
+  batch_size: 16
+
+  ts: null
+  rho: 7.0
+  steps: 40
+  clip_denoised: true
+  
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm

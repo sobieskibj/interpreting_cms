@@ -516,7 +516,7 @@ class QKVAttention(nn.Module):
         return count_flops_attn(model, _x, y)
 
 
-class UNetModelDirMove(nn.Module):
+class UNetModelHMove(nn.Module):
     """
     The full UNet model with attention and timestep embedding.
 
@@ -751,7 +751,9 @@ class UNetModelDirMove(nn.Module):
 
         if path_ckpt:
             state_dict = th.load(path_ckpt, map_location = 'cpu')
-            self.load_state_dict(state_dict)
+            # we use strict = False so that label_emb is not 
+            # required to be loaded
+            self.load_state_dict(state_dict, strict = False)
 
         self.register_names()
 
@@ -799,16 +801,6 @@ class UNetModelDirMove(nn.Module):
             self.num_classes is not None
         ), "must specify y if and only if the model is class-conditional"
 
-        if h_move is not None:
-            # TODO: make it correct for batches
-            h_dir = h_move.dir
-            h_id = h_move.id
-            h_step_size = h_move.step_size
-        else:
-            h_dir = None
-            h_id = None
-            h_step_size = None
-
         hs = []
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
 
@@ -819,23 +811,16 @@ class UNetModelDirMove(nn.Module):
         h = x.type(self.dtype)
         for module in self.input_blocks:
             h = module(h, emb)
-
-            if module.id == h_id:
-                h += h_step_size * h_dir
-
+            h = h_move.move(h, module.id)
             hs.append(h)
 
         h = self.middle_block(h, emb)
-
-        if self.middle_block.id == h_id:
-            h += h_step_size * h_dir
+        h = h_move.move(h, self.middle_block.id)
 
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
-
-            if module.id == h_id:
-                h += h_step_size * h_dir
+            h = h_move.move(h, module.id)
 
         h = h.type(x.dtype)
         return self.out(h)
