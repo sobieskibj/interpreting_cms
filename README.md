@@ -60,6 +60,29 @@ mpiexec -n 1 python scripts/image_sample.py \
 --weight_schedule uniform
 ```
 
+## Experiments
+
+Ready-to-use configs for the following experiments are available:
+
+- sampling - sample images using a pretrained CM
+    - using one-step sampler
+    ```sh
+    python src/main.py --config-name cm_sampling_onestep_imagenet
+    ```
+    - using multi-step sampler
+    ```sh
+    python src/main.py --config-name cm_sampling_multistep_imagenet
+    ```
+- h-move - move the representation of a given UNet block along a random direction during sampling from a fixed noise
+    - using one-step sampler
+    ```sh
+    python src/main.py --config-name cm_h_move_onestep_imagenet
+    ```
+    - using multi-step sampler
+    ```sh
+    python src/main.py --config-name cm_h_move_multistep_imagenet
+    ```
+
 ## Tips
 
 To avoid conflicts with packages named in the same way as dirs in root, use
