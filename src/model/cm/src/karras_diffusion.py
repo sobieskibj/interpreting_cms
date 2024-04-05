@@ -41,6 +41,7 @@ class KarrasDenoiser:
         weight_schedule="karras",
         distillation=False,
         loss_norm="lpips",
+        clip_denoised=True
     ):
         self.sigma_data = sigma_data
         self.sigma_max = sigma_max
@@ -52,6 +53,7 @@ class KarrasDenoiser:
             self.lpips_loss = LPIPS(replace_pooling=True, reduction="none")
         self.rho = rho
         self.num_timesteps = 40
+        self.clip_denoised = clip_denoised
 
     def get_snr(self, sigmas):
         return sigmas**-2
@@ -347,6 +349,10 @@ class KarrasDenoiser:
         rescaled_t = 1000 * 0.25 * th.log(sigmas + 1e-44)
         model_output = model(c_in * x_t, rescaled_t, **model_kwargs)
         denoised = c_out * model_output + c_skip * x_t
+
+        if self.clip_denoised:
+            denoised = denoised.clamp(-1, 1)
+
         return model_output, denoised
 
 

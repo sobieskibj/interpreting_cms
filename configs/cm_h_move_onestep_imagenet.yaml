@@ -15,10 +15,7 @@ exp:
   n_samples: 16
   batch_size: 16
 
-  ts: null
-  rho: 7.0
-  steps: 40
-  clip_denoised: true
+  class_id: 0 # id of class used in conditioning
   
 fabric:
   _target_: lightning.Fabric

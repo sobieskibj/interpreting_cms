@@ -14,7 +14,7 @@ channel_mult:
   - 2
   - 3 
   - 4
-num_classes: null
+num_classes: 1000
 use_checkpoint: false
 use_fp16: true
 num_heads: 4

@@ -14,11 +14,6 @@ exp:
   n_samples: 1024
   batch_size: 512
 
-  ts: null
-  rho: 7.0
-  steps: 40
-  clip_denoised: true
-  
 fabric:
   _target_: lightning.Fabric
   num_nodes: 1

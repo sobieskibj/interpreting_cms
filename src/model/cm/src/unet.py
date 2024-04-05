@@ -751,7 +751,7 @@ class UNetModel(nn.Module):
 
         if path_ckpt:
             state_dict = th.load(path_ckpt, map_location = 'cpu')
-            self.load_state_dict(state_dict)
+            self.load_state_dict(state_dict, strict = False)
 
     def convert_to_fp16(self):
         """

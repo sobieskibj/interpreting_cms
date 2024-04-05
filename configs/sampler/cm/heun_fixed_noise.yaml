@@ -4,4 +4,4 @@ s_churn: 0.0
 s_tmin: 0.0 
 s_tmax: !!float 'inf'
 s_noise: 1.0
-fix_noise: false
+fix_noise: true

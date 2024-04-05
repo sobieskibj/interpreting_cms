@@ -2,5 +2,7 @@ _target_: model.cm.KarrasDenoiser
 sigma_data: 0.5
 sigma_max: 80.0
 sigma_min: 0.002
+rho: 7.0
 distillation: false
 weight_schedule: uniform
+clip_denoised: true

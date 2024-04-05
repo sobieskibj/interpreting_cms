@@ -1,2 +1,3 @@
 _partial_: true
 _target_: model.cm.sample_onestep
+steps: 40
