@@ -3,7 +3,7 @@ defaults:
   - dataset: cm/imagenet/sampling
   - model: cm/imagenet/sampling
   - diffusion: cm/imagenet/sampling
-  - sampler: cm/onestep
+  - sampler: cm/imagenet/onestep
 
 exp:
   run_func: 

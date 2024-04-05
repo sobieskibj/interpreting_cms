@@ -3,7 +3,7 @@ defaults:
   - dataset: cm/imagenet/h_move
   - model: cm/imagenet/h_move
   - diffusion: cm/imagenet/h_move
-  - sampler: cm/multistep_fixed_noise
+  - sampler: cm/imagenet/multistep_fixed_noise
   - asset: cm/h_move/imagenet/default
 
 exp:

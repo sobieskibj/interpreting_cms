@@ -3,7 +3,7 @@ defaults:
   - dataset: cm/imagenet/h_move
   - model: cm/imagenet/h_move
   - diffusion: cm/imagenet/h_move
-  - sampler: cm/onestep
+  - sampler: cm/imagenet/onestep
   - asset: cm/h_move/imagenet/default
 
 exp:

@@ -1,9 +1,9 @@
 defaults:
   - _self_
-  - dataset: cm/imagenet/sampling
-  - model: cm/imagenet/sampling
-  - diffusion: cm/imagenet/sampling
-  - sampler: cm/imagenet/multistep
+  - dataset: cm/lsun_bedroom/sampling
+  - model: cm/lsun_bedroom/sampling
+  - diffusion: cm/lsun_bedroom/sampling
+  - sampler: cm/lsun_bedroom/onestep
 
 exp:
   run_func: 
@@ -11,8 +11,8 @@ exp:
   seed: 42
   log_dir: # set during runtime to automatically created dir
 
-  n_samples: 1024
-  batch_size: 512
+  n_samples: 128
+  batch_size: 32
 
 fabric:
   _target_: lightning.Fabric
