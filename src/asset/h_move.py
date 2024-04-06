@@ -10,7 +10,8 @@ class HMove(nn.Module):
             id: str, 
             step_size: list, 
             use: bool,
-            use_fp16: bool):
+            use_fp16: bool,
+            print_shapes: bool):
         '''
         source - source of the direction along which to move.
             If str, it is treated as path to .pt file.
@@ -24,6 +25,9 @@ class HMove(nn.Module):
             If True, the h move is performed.
             If False, the object is initialized in a way that does not
                 influence any outputs.
+        print_shapes - boolean indicating whether to print shapes of
+            each block's representation. Useful when trying to find the
+            shape for config.
         '''
         super().__init__()
         assert isinstance(step_size, omegaconf.listconfig.ListConfig) and len(step_size) == 2
@@ -31,6 +35,7 @@ class HMove(nn.Module):
         self.step_size = step_size
         self.use_fp16 = use_fp16
         self.register_buffer('dir', self.get_dir(source, use))
+        self.print_shapes = print_shapes
 
     def get_dir(self, source, use):
         '''
@@ -58,6 +63,9 @@ class HMove(nn.Module):
         
     def move(self, h, block_id):
         assert block_id is not None, 'Block must be assigned an identifier'
+
+        if self.print_shapes:
+            print(f'{block_id}: {h.shape}')
 
         if self.dir is not None and block_id == self.id:
             # creates a sequence of uniformly spaced step 
