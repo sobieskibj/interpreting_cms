@@ -1,21 +1,25 @@
 import torch
 import omegaconf
 from torch import nn
+from pathlib import Path
 
 class HMove(nn.Module):
 
     def __init__(
             self, 
-            source: str|list, 
+            shape: str|list, 
+            norm: float,
             id: str, 
             step_size: list, 
             use: bool,
             use_fp16: bool,
-            print_shapes: bool):
+            print_shapes: bool,
+            path_save: str,
+            path_load: str|None):
         '''
-        source - source of the direction along which to move.
-            If str, it is treated as path to .pt file.
-            If list, it represents the shape of a randomly sampled direction.
+        shape - shape of the direction along which to move.
+            Provided as a list representing the direction's shape.
+        norm - l2 norm of the direction when moving along it.
         id - identifier of the layer/block which representation will be
             moved along the direction.
         step_size - step size which scales the normalized direction.
@@ -28,46 +32,48 @@ class HMove(nn.Module):
         print_shapes - boolean indicating whether to print shapes of
             each block's representation. Useful when trying to find the
             shape for config.
+        path_save - path where the object's checkpoint will be saved.
+        path_load - optional path from which the object will be loaded.
         '''
         super().__init__()
         assert isinstance(step_size, omegaconf.listconfig.ListConfig) and len(step_size) == 2
-        self.id = id
+        self.norm = torch.tensor(norm)
         self.step_size = step_size
         self.use_fp16 = use_fp16
-        self.register_buffer('dir', self.get_dir(source, use))
+        self.use = use
+        self.id = id
+        self.register_buffer('dir', self.get_dir(shape))
+        self.load(path_load)
+        self.path_save = Path(path_save)
         self.print_shapes = print_shapes
+        self.save()
 
-    def get_dir(self, source, use):
+    def save(self):
+        torch.save(self.state_dict(), self.path_save / 'h_move.pt')
+
+    def load(self, path_load):
+        if path_load is not None:
+            self.load_state_dict(torch.load(path_load))
+
+    def get_dir(self, shape):
         '''
-        Returns the direction based on provided source. 
+        Returns the direction based on provided shape. 
         '''
-        if use:
-            if isinstance(source, str):
-                state_dict = torch.load(source)
-                dir = state_dict['dir']
-                assert self.id == state_dict['id']
-                import pdb; pdb.set_trace()
-                # make sure that it is loaded correctly
+        dir = torch.randn(1, *shape)
+        dir /= dir.norm()
 
-            elif isinstance(source, omegaconf.listconfig.ListConfig):
-                dir = torch.randn(1, *source)
-                dir /= dir.norm()
+        if self.use_fp16:
+            dir = dir.half()
 
-            if self.use_fp16:
-                dir = dir.half()
-
-            return dir
-
-        else:
-            return None
+        return dir
         
     def move(self, h, block_id):
         assert block_id is not None, 'Block must be assigned an identifier'
 
         if self.print_shapes:
-            print(f'{block_id}: {h.shape}')
+            print(f'["{block_id}"]="{list(h.shape)[1:]}" \\')
 
-        if self.dir is not None and block_id == self.id:
+        if self.use and block_id == self.id:
             # creates a sequence of uniformly spaced step 
             # of length equal to batch size sizes
             step_size = torch.linspace(*self.step_size, h.shape[0])
@@ -76,9 +82,9 @@ class HMove(nn.Module):
                 step_size = step_size.half()
 
             dims_to_add = self.dir.ndim - step_size.ndim
-            step_size = step_size.view((-1,) + dims_to_add *(1,))
+            step_size = step_size.view((-1,) + dims_to_add * (1,))
 
-            return h + step_size * self.dir
+            return h + step_size * self.norm * self.dir
         
         else:
             return h

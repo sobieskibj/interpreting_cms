@@ -1,0 +1,11 @@
+_partial_: true
+_target_: model.cm.stochastic_iterative_sampler
+ts:
+  - 0
+  - 67
+  - 150
+t_min: ${diffusion.sigma_min}
+t_max: ${diffusion.sigma_max}
+rho: ${diffusion.rho}
+steps: 151
+fix_noise: false

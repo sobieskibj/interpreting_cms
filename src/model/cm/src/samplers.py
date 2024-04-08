@@ -170,7 +170,7 @@ def stochastic_iterative_sampler(
             noise  = torch.randn_like(x[0]).unsqueeze(0).repeat_interleave(x.shape[0], dim = 0)
         else:
             noise = torch.randn_like(x)
-        import pdb; pdb.set_trace()
+
         x = x0 + noise * np.sqrt(next_t**2 - t_min**2)
 
     return x

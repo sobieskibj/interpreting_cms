@@ -1,0 +1,26 @@
+defaults:
+  - _self_
+  - dataset: cm/lsun_bedroom/h_move
+  - model: cm/lsun_bedroom/h_move
+  - diffusion: cm/lsun_bedroom/h_move
+  - sampler: cm/lsun_bedroom/multistep_fixed_noise
+  - asset: cm/h_move/lsun_bedroom/default
+
+exp:
+  run_func: 
+    _target_: experiment.run_cm_h_move
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 16
+  batch_size: 16
+
+  class_id: 0 # id of class used in conditioning
+  
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm

@@ -57,6 +57,13 @@ def log_batch_imgs(batch_imgs):
     grid = wandb.Image(grid.numpy(force = True))
     wandb.log({'samples': grid})
 
+def log_batch_diffs(batch_imgs):
+    batch_diffs = torch.diff(batch_imgs, dim = 0)
+    batch_diffs = torch.cat([torch.zeros_like(batch_diffs[0])[None], batch_diffs])
+    grid = make_grid(batch_diffs).permute(1, 2, 0)
+    grid = wandb.Image(grid.numpy(force = True))
+    wandb.log({'running_diffs': grid})
+
 def run(config: DictConfig):
     utils.preprocess_config(config)
     utils.setup_wandb(config)
@@ -90,3 +97,4 @@ def run(config: DictConfig):
             log.info('Logging images')
             # log samples
             log_batch_imgs(batch_x_0)
+            log_batch_diffs(batch_x_0)

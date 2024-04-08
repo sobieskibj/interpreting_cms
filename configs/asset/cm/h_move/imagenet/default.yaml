@@ -1,13 +1,11 @@
 h_move:
   _target_: asset.HMove
-  source:
-    - 768
-    - 8
-    - 8
+  shape: [768, 8, 8]
   id: middle_0
-  step_size:
-    - 0.
-    - 1.
+  step_size: [0., 1.]
+  norm: 1.
   use: true
   use_fp16: ${model.use_fp16}
   print_shapes: false
+  path_save: ${exp.log_dir}
+  path_load: null
