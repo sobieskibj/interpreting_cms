@@ -746,14 +746,14 @@ class UNetModelHMove(nn.Module):
         if use_fp16:
             self.convert_to_fp16()
 
-        if train:
-            self.eval()
-
         if path_ckpt:
             state_dict = th.load(path_ckpt, map_location = 'cpu')
             # we use strict = False so that label_emb is not 
             # required to be loaded
             self.load_state_dict(state_dict, strict = False)
+
+        if not train:
+            self.eval()
 
         self.register_names()
 

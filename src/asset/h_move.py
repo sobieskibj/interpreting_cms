@@ -1,4 +1,5 @@
 import torch
+import wandb
 import omegaconf
 from torch import nn
 from pathlib import Path
@@ -8,7 +9,7 @@ class HMove(nn.Module):
     def __init__(
             self, 
             shape: str|list, 
-            norm: float,
+            norm_scale: float,
             id: str, 
             step_size: list, 
             use: bool,
@@ -19,7 +20,8 @@ class HMove(nn.Module):
         '''
         shape - shape of the direction along which to move.
             Provided as a list representing the direction's shape.
-        norm - l2 norm of the direction when moving along it.
+        norm_scale - coefficient that scales the norm of the direction which
+            is initially equal to the norm of the representation.
         id - identifier of the layer/block which representation will be
             moved along the direction.
         step_size - step size which scales the normalized direction.
@@ -37,7 +39,7 @@ class HMove(nn.Module):
         '''
         super().__init__()
         assert isinstance(step_size, omegaconf.listconfig.ListConfig) and len(step_size) == 2
-        self.norm = torch.tensor(norm)
+        self.norm_scale = torch.tensor(norm_scale)
         self.step_size = step_size
         self.use_fp16 = use_fp16
         self.use = use
@@ -49,7 +51,17 @@ class HMove(nn.Module):
         self.save()
 
     def save(self):
-        torch.save(self.state_dict(), self.path_save / 'h_move.pt')
+        # make save path
+        path_save = self.path_save / 'wandb' / 'latest-run' / 'artifacts'
+        path_save.mkdir(parents = True, exist_ok = True)
+        path_save = path_save / 'h_move.pt'
+        
+        # save ckpt to it
+        torch.save(self.state_dict(), path_save)
+
+        # create wandb artifact and add ckpt
+        art = wandb.Artifact(name = 'h_move', type = 'model')
+        art.add_file(path_save)
 
     def load(self, path_load):
         if path_load is not None:
@@ -83,8 +95,9 @@ class HMove(nn.Module):
 
             dims_to_add = self.dir.ndim - step_size.ndim
             step_size = step_size.view((-1,) + dims_to_add * (1,))
+            h_norm = h[0].norm()
 
-            return h + step_size * self.norm * self.dir
+            return h + step_size * self.norm_scale * h_norm * self.dir
         
         else:
             return h

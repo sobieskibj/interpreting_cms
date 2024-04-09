@@ -3,5 +3,6 @@ dataset:
   _target_: dataset.cm.StandardNormalSingleNoiseDataset
   n_samples: ${exp.n_samples}
   resolution: 64
+  seed: ${exp.seed}
 batch_size: ${exp.batch_size}
 num_workers: 0

@@ -3,7 +3,7 @@ h_move:
   shape: [1024, 8, 8]
   id: middle_0
   step_size: [0., 1.]
-  norm: 1.
+  norm_scale: 1.
   use: true
   use_fp16: ${model.use_fp16}
   print_shapes: false

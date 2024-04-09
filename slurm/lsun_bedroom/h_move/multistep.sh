@@ -69,12 +69,17 @@ ID_TO_SHAPE=(
 ["output_17"]="[256, 256, 256]" \
 )
 
-for IDX in "${!ID_TO_SHAPE[@]}"
-do
-    srun python src/main.py \
-    --config-name cm_h_move_multistep_lsun_bedroom \
-    asset.h_move.norm=1000. \
-    'asset.h_move.step_size=[0.,50.]' \
-    asset.h_move.id=$IDX \
-    "asset.h_move.shape=${ID_TO_SHAPE[$IDX]}"
+TIMESTEPS_LIST=(
+    "[0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150]"
+)
+
+for TIMESTEPS in "${TIMESTEPS_LIST[@]}"; do
+    for IDX in "${!ID_TO_SHAPE[@]}"; do
+        srun python src/main.py \
+        --config-name cm_h_move_multistep_lsun_bedroom \
+        asset.h_move.norm_scale=1.0 \
+        asset.h_move.id=$IDX \
+        "asset.h_move.shape=${ID_TO_SHAPE[$IDX]}" \
+        "sampler.ts=$TIMESTEPS"
+    done
 done
