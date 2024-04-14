@@ -5,4 +5,4 @@ t_min: ${diffusion.sigma_min}
 t_max: ${diffusion.sigma_max}
 rho: ${diffusion.rho}
 steps: 151
-fix_noise: false
+fix_noise: true
