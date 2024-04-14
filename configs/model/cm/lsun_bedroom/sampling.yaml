@@ -4,18 +4,9 @@ in_channels: 3
 model_channels: 256
 out_channels: 3
 num_res_blocks: 2
-attention_resolutions:
-  - 32
-  - 16
-  - 8
+attention_resolutions: [32, 16, 8]
 dropout: 0.0
-channel_mult:
-  - 1
-  - 1
-  - 2 
-  - 2 
-  - 4
-  - 4
+channel_mult: [1, 1, 2, 2, 4, 4]
 num_classes: null
 use_checkpoint: false
 use_fp16: true
