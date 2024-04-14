@@ -178,14 +178,13 @@ def stochastic_iterative_sampler(
 
 @torch.no_grad()
 def max_noise_sampler(
-    distiller, x, sigmas, ts, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
+    distiller, x, sigmas, t, k, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
 
     t_max_rho = t_max ** (1 / rho)
     t_min_rho = t_min ** (1 / rho)
     s_in = x.new_ones([x.shape[0]])
 
-    t1 = (t_max_rho + ts[1] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
-    noise_scale = np.sqrt(t1**2 - t_min**2)
+    ts = [t]*k
 
     xs = []
     for i in range(len(ts) - 1):
@@ -200,7 +199,7 @@ def max_noise_sampler(
         else:
             noise = torch.randn_like(x)
 
-        x = x0 + noise * noise_scale
+        x = x0 + noise * np.sqrt(next_t**2 - t_min**2)
         xs.append(x)
 
     return torch.cat(xs, 0)
