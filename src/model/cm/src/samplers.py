@@ -175,6 +175,36 @@ def stochastic_iterative_sampler(
 
     return x
 
+
+@torch.no_grad()
+def max_noise_sampler(
+    distiller, x, sigmas, ts, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
+
+    t_max_rho = t_max ** (1 / rho)
+    t_min_rho = t_min ** (1 / rho)
+    s_in = x.new_ones([x.shape[0]])
+
+    t1 = (t_max_rho + ts[1] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
+    noise_scale = np.sqrt(t1**2 - t_min**2)
+
+    xs = []
+    for i in range(len(ts) - 1):
+        t = (t_max_rho + ts[i] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
+        x0 = distiller(x, t * s_in)
+        next_t = (t_max_rho + ts[i + 1] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
+        next_t = np.clip(next_t, t_min, t_max)
+
+        if fix_noise:
+            # repeats the same noise for the entire batch
+            noise  = torch.randn_like(x[0]).unsqueeze(0).repeat_interleave(x.shape[0], dim = 0)
+        else:
+            noise = torch.randn_like(x)
+
+        x = x0 + noise * noise_scale
+        xs.append(x)
+
+    return torch.cat(xs, 0)
+
 ### Progressive Distillation ###
 
 @torch.no_grad()
