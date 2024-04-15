@@ -23,7 +23,7 @@ conda activate icm
 cd /home2/faculty/bsobieski/icm
 
 # get script parameters
-WANDB_MODE=online
+wandb online
 
 export HYDRA_FULL_ERROR=1
 

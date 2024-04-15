@@ -11,8 +11,8 @@ exp:
   seed: 42
   log_dir: # set during runtime to automatically created dir
 
-  n_samples: 64
-  batch_size: 64
+  n_samples: 32
+  batch_size: 32
 
 fabric:
   _target_: lightning.Fabric

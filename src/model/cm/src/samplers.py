@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torchvision
 
 def append_zero(x):
     return torch.cat([x, x.new_zeros([1])])
@@ -148,6 +149,7 @@ def sample_dpm(denoiser, x, sigmas, s_churn = 0.0, s_tmin = 0.0, s_tmax = float(
 def sample_onestep(distiller, x, sigmas, steps = 40):
     """Single-step generation from a distilled model."""
     s_in = x.new_ones([x.shape[0]])
+    import pdb; pdb.set_trace()
     return distiller(x, sigmas[0] * s_in)
 
 
@@ -178,29 +180,25 @@ def stochastic_iterative_sampler(
 
 @torch.no_grad()
 def max_noise_sampler(
-    distiller, x, sigmas, t, k, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
+    distiller, x, sigmas, k, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
 
-    t_max_rho = t_max ** (1 / rho)
-    t_min_rho = t_min ** (1 / rho)
     s_in = x.new_ones([x.shape[0]])
-
-    ts = [t]*k
-
     xs = []
-    for i in range(len(ts) - 1):
-        t = (t_max_rho + ts[i] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
-        x0 = distiller(x, t * s_in)
-        next_t = (t_max_rho + ts[i + 1] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
-        next_t = np.clip(next_t, t_min, t_max)
+    
+    if fix_noise:
+        # NOTE: samplers could be refactored so that they scale 
+        #   the input x inside instead of outside
+        # fixes the noise to always move along the same trajectory
+        noise  = x / sigmas[0]
 
-        if fix_noise:
-            # repeats the same noise for the entire batch
-            noise  = torch.randn_like(x[0]).unsqueeze(0).repeat_interleave(x.shape[0], dim = 0)
-        else:
+    for _ in range(k):
+        x0 = distiller(x, t_max * s_in)
+
+        if not fix_noise:
             noise = torch.randn_like(x)
 
-        x = x0 + noise * np.sqrt(next_t**2 - t_min**2)
-        xs.append(x)
+        xs.append((x0 + 1) / 2)
+        x = x0 + noise * np.sqrt(t_max ** 2 - t_min ** 2)
 
     return torch.cat(xs, 0)
 
