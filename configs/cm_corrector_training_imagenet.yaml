@@ -1,0 +1,25 @@
+defaults:
+  - _self_
+  - dataset: cm/imagenet/corrector_training
+  - model: cm/imagenet/corrector_training
+  - diffusion: cm/imagenet/corrector_training
+  - sampler: cm/imagenet/corrector_training
+  - optimizer: cm/imagenet/corrector_training
+  - asset: cm/corrector/imagenet/training
+
+exp:
+  run_func: 
+    _target_: experiment.run_corrector_training
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 1024 # indicates dataset size (truncates datasets with bigger size)
+  batch_size: 512
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm

@@ -1,5 +1,6 @@
 import wandb
 import torch
+import torch.nn.functional as F
 from omegaconf import DictConfig
 from hydra.utils import instantiate
 
@@ -16,14 +17,17 @@ def get_fabric(config):
 
 def get_components(config, fabric):
     diffusion = instantiate(config.diffusion)
+    sampler = instantiate(config.sampler)(diffusion = diffusion)
     cm = fabric.setup(instantiate(config.model))
-    corrector = fabric.setup(instantiate(config.corrector))
-    return corrector, cm, diffusion
+    corrector = instantiate(config.asset)
+    optimizer = instantiate(config.optimizer)(params = corrector.parameters())
+    corrector, optimizer = fabric.setup(corrector, optimizer)
+    return corrector, optimizer, cm, diffusion, sampler
 
 def get_dataloader(config, fabric):
     return fabric.setup_dataloaders(instantiate(config.dataset))
 
-def get_denoiser(config, model, diffusion, is_class_cond):
+def get_denoiser(config, model, diffusion):
     '''
     Make denoiser object that includes randomized class
     conditioning signal.
@@ -36,6 +40,18 @@ def get_denoiser(config, model, diffusion, is_class_cond):
     
     return denoiser
 
+def get_batch_x_t(config, batch_imgs, sigmas, sampler):
+    '''
+    Return batch of x_t with t sampled randomly. This function
+    follows the sampling scheme of sigma_i from Improved Techniques,
+    but could be converted to sample sigma uniformly. 
+    '''
+    assert config.exp.batch_size >= config.exp.n_samples
+    timesteps, batch_weights = sampler.sample(config.exp.batch_size)
+    batch_sigmas = sigmas.gather(dim = 0, index = timesteps)
+    batch_x_t = batch_imgs + batch_sigmas * torch.randn_like(batch_imgs)
+    return batch_x_t, batch_sigmas, batch_weights
+
 def run(config: DictConfig):
     utils.preprocess_config(config)
     utils.setup_wandb(config)
@@ -44,7 +60,7 @@ def run(config: DictConfig):
     fabric = get_fabric(config)
 
     # setup components, optimizer and dataloader
-    corrector, cm, diffusion = get_components(config, fabric)
+    corrector, optimizer, cm, diffusion, sampler = get_components(config, fabric)
     dataloader = get_dataloader(config, fabric)
 
     # automatically move each created tensor to proper device
@@ -54,17 +70,27 @@ def run(config: DictConfig):
         sigmas = utils.get_sigmas_karras(config)
         sigma_max = utils.get_sigma_max(config)
 
-        for batch_idx, batch_noise in enumerate(dataloader):
+        for batch_idx, batch_x_0 in enumerate(dataloader):
             log.info(f'Batch index: {batch_idx}')
-            # scale standard gaussian noise with max sigma
-            batch_x_T = batch_noise * sigma_max
+            optimizer.zero_grad()
+            
+            # sample noise with random sigma to get x_t
+            batch_x_t, batch_sigmas, batch_weights = get_batch_x_t(config, batch_x_0, sigmas, sampler)
 
-            # sample random trajectory
+            # get approximate x_0 with cm
+            denoiser = get_denoiser(config, cm, diffusion)
+            batch_x_0_hat = denoiser(batch_x_t, batch_sigmas)
 
-            # sample random step from the trajectory
+            # enhance x_0 with corrector
+            batch_c_input = torch.cat([batch_x_0_hat, batch_x_t])
+            batch_x_0_hat_c = corrector(batch_c_input, batch_sigmas)
 
-            # run through cm
-
-            # enhance with the corrector
-
-            # regress wrt to gt image
+            # regress wrt to x_0
+            # TODO: batch_weights is incorrect since we sample timesteps
+            #       uniformly but sigmas have non-uniform distribution
+            loss = F.mse_loss(batch_x_0, batch_x_0_hat_c) # * batch_weights
+            fabric.backward(loss)
+            optimizer.step()
+            
+            log.info(f'Loss: {loss.mean().item()}')
+            import pdb; pdb.set_trace()

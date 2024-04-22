@@ -6,12 +6,14 @@ from datasets import load_dataset
 
 class ImageNetDataset(RealDataDataset):
 
-    def __init__(self, split: str):
+    def __init__(self, split: str, img_size: int, n_samples: int, random_crop: bool, random_flip: bool):
         super().__init__()
         self.split = split
-        self.img_size = 256
+        self.img_size = img_size
+        self.random_crop = random_crop
+        self.random_flip = random_flip
         self.data = load_dataset('imagenet-1k', split = self.split, trust_remote_code = True)
-        self.length = min(len(self.data))
+        self.length = min(len(self.data), n_samples)
 
     def __len__(self):
         return self.length
@@ -22,9 +24,9 @@ class ImageNetDataset(RealDataDataset):
         pil_image = img.convert("RGB")
 
         if self.random_crop:
-            arr = self.random_crop_arr(pil_image, self.resolution)
+            arr = self.random_crop_arr(pil_image, self.img_size)
         else:
-            arr = self.center_crop_arr(pil_image, self.resolution)
+            arr = self.center_crop_arr(pil_image, self.img_size)
 
         if self.random_flip and random.random() < 0.5:
             arr = arr[:, ::-1]

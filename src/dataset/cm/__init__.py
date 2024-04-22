@@ -1,2 +1,3 @@
 from .standard_normal_noise import StandardNormalNoiseDataset
 from .standard_normal_single_noise import StandardNormalSingleNoiseDataset
+from .imagenet import ImageNetDataset
