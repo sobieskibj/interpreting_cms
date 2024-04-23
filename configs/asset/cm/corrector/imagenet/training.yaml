@@ -16,7 +16,7 @@ channel_mult:
   - 4
 num_classes: null
 use_checkpoint: false
-use_fp16: true
+use_fp16: false
 num_heads: 4
 num_head_channels: 64
 num_heads_upsample: -1
@@ -25,5 +25,5 @@ resblock_updown: true
 use_new_attention_order: false
 conv_resample: true
 dims: 2
-train: false
+train: true
 path_ckpt: null

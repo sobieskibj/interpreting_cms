@@ -1,6 +1,7 @@
 import wandb
 import omegaconf
 from omegaconf import DictConfig
+from torchvision.utils import make_grid
 
 def setup_wandb(config: DictConfig):
     # extract two last subdirs
@@ -16,3 +17,11 @@ def setup_wandb(config: DictConfig):
         name = name,
         config = wandb_config,
         sync_tensorboard = True)
+    
+def watch_models(*models):
+    wandb.watch(models = models)
+
+def log_grid(imgs, name):
+    grid = make_grid(imgs).permute(1, 2, 0)
+    grid = wandb.Image(grid.numpy(force = True))
+    wandb.log({name: grid})

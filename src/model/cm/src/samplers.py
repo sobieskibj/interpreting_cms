@@ -149,7 +149,6 @@ def sample_dpm(denoiser, x, sigmas, s_churn = 0.0, s_tmin = 0.0, s_tmax = float(
 def sample_onestep(distiller, x, sigmas, steps = 40):
     """Single-step generation from a distilled model."""
     s_in = x.new_ones([x.shape[0]])
-    import pdb; pdb.set_trace()
     return distiller(x, sigmas[0] * s_in)
 
 

@@ -53,15 +53,9 @@ class ScheduleSampler(ABC):
                  - weights: a tensor of weights to scale the resulting losses.
         """
         w = self.weights()
-        p = w / np.sum(w)
-        indices_np = np.random.choice(len(p), size=(batch_size,), p=p)
-        indices = th.from_numpy(indices_np).long()
-        weights_np = 1 / (len(p) * p[indices_np])
-        weights = th.from_numpy(weights_np).float()
-        
-        if device is not None:
-            indices = indices.to(device)
-            weights = weights.to(device)
+        p = w / th.sum(w)
+        indices = th.multinomial(p, batch_size, replacement = True).long()
+        weights = 1 / (len(p) * p[indices]).float()
 
         return indices, weights
 
@@ -69,7 +63,7 @@ class ScheduleSampler(ABC):
 class UniformSampler(ScheduleSampler):
     def __init__(self, diffusion, steps = None):
         self.diffusion = diffusion
-        self._weights = np.ones([diffusion.num_timesteps])
+        self._weights = th.ones([diffusion.num_timesteps])
         self.steps = steps
 
     def weights(self):

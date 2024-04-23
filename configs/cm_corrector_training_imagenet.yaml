@@ -13,13 +13,17 @@ exp:
   seed: 42
   log_dir: # set during runtime to automatically created dir
 
-  n_samples: 1024 # indicates dataset size (truncates datasets with bigger size)
-  batch_size: 512
+  n_samples: 2048 # indicates dataset size (truncates datasets with bigger size)
+  n_epochs: 1_000_000
+  batch_size: 64
+
+  eval_freq: 128 # every this number of batches we log qualitative results
 
 fabric:
   _target_: lightning.Fabric
   num_nodes: 1
   devices: 1
+  precision: 16-mixed
 
 wandb:
   project: icm
