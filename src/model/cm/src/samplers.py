@@ -147,10 +147,13 @@ def sample_dpm(denoiser, x, sigmas, s_churn = 0.0, s_tmin = 0.0, s_tmax = float(
 
 @torch.no_grad()
 def sample_onestep(distiller, x, sigmas, steps = 40):
-    """Single-step generation from a distilled model."""
+    """
+    Single-step generation from a distilled model.
+    
+    Modified to change std of x at the sampler level and not on the outside.
+    """
     s_in = x.new_ones([x.shape[0]])
-    import pdb; pdb.set_trace()
-    return distiller(x, sigmas[0] * s_in)
+    return distiller(x * sigmas[0], sigmas[0] * s_in)
 
 
 @torch.no_grad()
@@ -163,7 +166,10 @@ def stochastic_iterative_sampler(
     xs = [None] * (len(ts) - 1)
 
     if fix_noise:
-        noise = x / sigmas[0]
+        noise = x.clone()
+
+    # scale to proper std
+    x =  x * sigmas[0]
 
     for i in range(len(ts) - 1):
         t = (t_max_rho + ts[i] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
@@ -192,10 +198,11 @@ def max_noise_sampler(
     xs = []
     
     if fix_noise:
-        # NOTE: samplers could be refactored so that they scale 
-        #   the input x inside instead of outside
         # fixes the noise to always move along the same trajectory
-        noise  = x / sigmas[0]
+        noise  = x.clone()
+
+    # scale to proper std
+    x =  x * sigmas[0]
 
     for _ in range(k):
         x0 = distiller(x, t_max * s_in)
@@ -232,7 +239,10 @@ def fixed_noise_scale_sampler(
 
     if fix_noise:
         # fixes the noise to always move along the same trajectory
-        noise  = x / sigmas[0]
+        noise  = x.clone()
+
+    # scale to proper std
+    x =  x * sigmas[0]
 
     # obtain initial x0 from full noise
     x0 = distiller(x, t_max * s_in)
@@ -258,6 +268,10 @@ def fixed_noise_scale_sampler(
         xs[k_step] = x0
 
     return torch.cat(xs, 0)
+
+@torch.no_grad()
+def pc_sampler():
+    return ...
 
 ### Progressive Distillation ###
 

@@ -68,12 +68,9 @@ def run(config: DictConfig):
         # get class conditioning and sigmas for sampling
         is_class_cond = utils.is_class_cond(config)
         sigmas = utils.get_sigmas_karras(config)
-        sigma_max = utils.get_sigma_max(config)
 
-        for batch_idx, batch_noise in enumerate(dataloader):
+        for batch_idx, batch_input in enumerate(dataloader):
             log.info(f'Batch index: {batch_idx}')
-            # scale standard gaussian noise with max sigma
-            batch_x_T = batch_noise * sigma_max
 
             # create denoiser object separately for each batch
             # to randomize class conditoning
@@ -81,7 +78,7 @@ def run(config: DictConfig):
 
             log.info('Generating images')
             # run sampler with the denoiser to obtain images
-            batch_x_0 = sampler(denoiser, batch_x_T, sigmas)
+            batch_x_0 = sampler(denoiser, batch_input, sigmas)
             batch_x_0 = batch_x_0.clamp(-1, 1)
 
             log.info('Logging images')
