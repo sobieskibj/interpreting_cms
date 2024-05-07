@@ -1,0 +1,3 @@
+_partial_: true
+_target_: model.cm.UniformSampler
+steps: 201

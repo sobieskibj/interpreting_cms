@@ -90,7 +90,6 @@ class ImageDataset(Dataset):
         random_flip=True,
     ):
         super().__init__()
-        import pdb; pdb.set_trace()
         self.resolution = resolution
         self.local_images = image_paths[shard:][::num_shards]
         self.local_classes = None if classes is None else classes[shard:][::num_shards]

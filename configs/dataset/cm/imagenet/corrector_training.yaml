@@ -1,0 +1,11 @@
+_target_: torch.utils.data.DataLoader
+dataset: 
+  _target_: dataset.cm.ImageNetDataset
+  n_samples: ${exp.n_samples}
+  img_size: 64
+  split: train
+  random_crop: false
+  random_flip: true
+batch_size: ${exp.batch_size}
+num_workers: 0
+shuffle: false # temporarily set to false to avoid error

@@ -42,7 +42,7 @@ class ScheduleSampler(ABC):
         The weights needn't be normalized, but must be positive.
         """
 
-    def sample(self, batch_size, device):
+    def sample(self, batch_size, device = None):
         """
         Importance-sample timesteps for a batch.
 
@@ -53,18 +53,18 @@ class ScheduleSampler(ABC):
                  - weights: a tensor of weights to scale the resulting losses.
         """
         w = self.weights()
-        p = w / np.sum(w)
-        indices_np = np.random.choice(len(p), size=(batch_size,), p=p)
-        indices = th.from_numpy(indices_np).long().to(device)
-        weights_np = 1 / (len(p) * p[indices_np])
-        weights = th.from_numpy(weights_np).float().to(device)
+        p = w / th.sum(w)
+        indices = th.multinomial(p, batch_size, replacement = True).long()
+        weights = 1 / (len(p) * p[indices]).float()
+
         return indices, weights
 
 
 class UniformSampler(ScheduleSampler):
-    def __init__(self, diffusion):
+    def __init__(self, diffusion, steps = None):
         self.diffusion = diffusion
-        self._weights = np.ones([diffusion.num_timesteps])
+        self._weights = th.ones([diffusion.num_timesteps])
+        self.steps = steps
 
     def weights(self):
         return self._weights
