@@ -78,7 +78,7 @@ def run(config: DictConfig):
 
             log.info('Generating images')
             # run sampler with the denoiser to obtain images
-            batch_x_0 = sampler(denoiser, batch_input, sigmas)
+            batch_x_0 = sampler(distiller = denoiser, x = batch_input, sigmas = sigmas)
             batch_x_0 = batch_x_0.clamp(-1, 1)
 
             log.info('Logging images')

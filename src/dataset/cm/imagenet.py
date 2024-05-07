@@ -32,9 +32,8 @@ class ImageNetDataset(RealDataDataset):
             arr = arr[:, ::-1]
 
         arr = arr.astype(np.float32) / 127.5 - 1
-
-        # NOTE: we assume no class conditioning for now
         
+        # NOTE: we assume no class conditioning for now
         # out_dict = {}
         # if self.local_classes is not None:
         #     out_dict["y"] = np.array(self.local_classes[idx], dtype=np.int64)
