@@ -147,9 +147,13 @@ def sample_dpm(denoiser, x, sigmas, s_churn = 0.0, s_tmin = 0.0, s_tmax = float(
 
 @torch.no_grad()
 def sample_onestep(distiller, x, sigmas, steps = 40):
-    """Single-step generation from a distilled model."""
+    """
+    Single-step generation from a distilled model.
+    
+    Modified to change std of x at the sampler level and not on the outside.
+    """
     s_in = x.new_ones([x.shape[0]])
-    return distiller(x, sigmas[0] * s_in)
+    return distiller(x * sigmas[0], sigmas[0] * s_in)
 
 
 @torch.no_grad()
