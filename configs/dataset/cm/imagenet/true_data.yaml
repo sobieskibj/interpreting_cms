@@ -8,4 +8,4 @@ dataset:
   random_flip: true
 batch_size: ${exp.batch_size}
 num_workers: 0
-shuffle: false # temporarily set to false to avoid error
+shuffle: false
