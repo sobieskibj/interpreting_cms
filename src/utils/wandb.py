@@ -2,6 +2,7 @@ import wandb
 import omegaconf
 from omegaconf import DictConfig
 from torchvision.utils import make_grid
+from torchvision.transforms.functional import to_pil_image
 
 def setup_wandb(config: DictConfig):
     # extract two last subdirs
@@ -25,3 +26,14 @@ def log_grid(imgs, name):
     grid = make_grid(imgs).permute(1, 2, 0)
     grid = wandb.Image(grid.numpy(force = True))
     wandb.log({name: grid})
+
+def log_img(x, name):
+     if x.shape[0] == 1:
+         wandb.log({name: wandb.Image(x)})
+     else:
+         # we manually normalize each image in a batch
+         # to [0, 1] range. for single image, this is
+         # not needed
+         x = make_grid(x, scale_each = True, normalize = True)
+         x = to_pil_image(x)
+         wandb.log({name: wandb.Image(x)})
