@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
 #SBATCH --mem=40G
-#SBATCH --time 24:00:00
+#SBATCH --time 2:00:00
 #SBATCH --job-name=icm
 #SBATCH --output=slurm_logs/icm-%A.log
 
@@ -24,11 +24,22 @@ cd /home2/faculty/bsobieski/icm
 
 # get script parameters
 wandb online
-
 export HYDRA_FULL_ERROR=1
 
-for INTERVAL in {1..50}; do
+T_STEPS=($(seq -s ' ' 10 10 200))
+
+N_COMBS=${#T_STEPS[@]}
+
+for ITER_ID in $(seq 0 $(($N_COMBS - 1))); do
+
+    PARAMS=($(python src/utils/scripts/get_id_from_cart_product.py \
+        -l "${T_STEPS[@]}" \
+        --id $ITER_ID | tr -d '[],'))
+
+    T_STEP=${PARAMS[0]}
+
     srun python src/main.py \
-    --config-name cm_sampling_multistep_lsun_bedroom \
-    "sampler.ts=[$(seq -s , 0 $INTERVAL 150)]"
+    --config-name cm_sampling_cf_imagenet \
+    sampler.t_step=$T_STEP \
+
 done

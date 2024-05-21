@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torchvision
 
 def append_zero(x):
     return torch.cat([x, x.new_zeros([1])])
@@ -146,18 +147,29 @@ def sample_dpm(denoiser, x, sigmas, s_churn = 0.0, s_tmin = 0.0, s_tmax = float(
 
 @torch.no_grad()
 def sample_onestep(distiller, x, sigmas, steps = 40):
-    """Single-step generation from a distilled model."""
+    """
+    Single-step generation from a distilled model.
+    
+    Modified to change std of x at the sampler level and not on the outside.
+    """
     s_in = x.new_ones([x.shape[0]])
-    return distiller(x, sigmas[0] * s_in)
+    return distiller(x * sigmas[0], sigmas[0] * s_in)
 
 
 @torch.no_grad()
 def stochastic_iterative_sampler(
-    distiller, x, sigmas, ts, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
+    distiller, x, sigmas, ts, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False, correction = True):
 
     t_max_rho = t_max ** (1 / rho)
     t_min_rho = t_min ** (1 / rho)
     s_in = x.new_ones([x.shape[0]])
+    xs = [None] * (len(ts) - 1)
+
+    if fix_noise:
+        noise = x.clone()
+
+    # scale to proper std
+    x =  x * sigmas[0]
 
     for i in range(len(ts) - 1):
         t = (t_max_rho + ts[i] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
@@ -165,15 +177,313 @@ def stochastic_iterative_sampler(
         next_t = (t_max_rho + ts[i + 1] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
         next_t = np.clip(next_t, t_min, t_max)
 
-        if fix_noise:
-            # repeats the same noise for the entire batch
-            noise  = torch.randn_like(x[0]).unsqueeze(0).repeat_interleave(x.shape[0], dim = 0)
-        else:
+        if not fix_noise:
             noise = torch.randn_like(x)
 
-        x = x0 + noise * np.sqrt(next_t**2 - t_min**2)
+        xs[i] = x0
 
-    return x
+        if correction:
+            x = x0 + noise * np.sqrt(next_t**2 - t_min**2)
+        else:
+            x = x0 + noise * next_t
+
+    return torch.cat(xs, 0)
+
+
+@torch.no_grad()
+def max_noise_sampler(
+    distiller, x, sigmas, k, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
+
+    s_in = x.new_ones([x.shape[0]])
+    xs = []
+    
+    if fix_noise:
+        # fixes the noise to always move along the same trajectory
+        noise  = x.clone()
+
+    # scale to proper std
+    x =  x * sigmas[0]
+
+    for _ in range(k):
+        x0 = distiller(x, t_max * s_in)
+
+        if not fix_noise:
+            noise = torch.randn_like(x)
+
+        xs.append((x0 + 1) / 2)
+        x = x0 + noise * np.sqrt(t_max ** 2 - t_min ** 2)
+
+    return torch.cat(xs, 0)
+
+
+@torch.no_grad()
+def fixed_noise_scale_sampler(
+        distiller, 
+        x, 
+        sigmas, 
+        k, 
+        t_step, 
+        t_min = 0.002, 
+        t_max = 80.0, 
+        rho = 7.0, 
+        steps = 40, 
+        fix_noise = False, 
+        correction = True):
+    '''
+    t_step - timestep indicating the fixed noise scale
+    '''
+    t_max_rho = t_max ** (1 / rho)
+    t_min_rho = t_min ** (1 / rho)
+    s_in = x.new_ones([x.shape[0]])
+    xs = [None] * (k + 1)
+
+    if fix_noise:
+        # fixes the noise to always move along the same trajectory
+        noise  = x.clone()
+
+    # scale to proper std
+    x =  x * sigmas[0]
+
+    # obtain initial x0 from full noise
+    x0 = distiller(x, t_max * s_in)
+    xs[0] = x0
+
+    # iterate using a fixed noise scale
+    t = (t_min_rho + t_step / (steps - 1) * (t_max_rho - t_min_rho)) ** rho
+
+    for k_step in range(1, k + 1):
+
+        if not fix_noise:
+            # if trajectory is not fixed, sample a random one
+            noise = torch.randn_like(x)
+
+        # either use a corrected scale or not
+        if correction:
+            x = x0 + noise * np.sqrt(t ** 2 - t_min ** 2)
+        else:
+            x = x0 + noise * t
+
+        # denoise and save
+        x0 = distiller(x, t * s_in)
+        xs[k_step] = x0
+
+    return torch.cat(xs, 0)
+
+@torch.no_grad()
+def noiser_fixed_scale_sampler(
+        distiller, 
+        x, 
+        sigmas, 
+        k, 
+        t_step, 
+        t_min = 0.002, 
+        t_max = 80.0, 
+        rho = 7.0, 
+        steps = 40, 
+        fix_noise = False):
+    '''
+    t_step - timestep indicating the fixed noise scale
+    k - number of iterations on a fixed noise scale
+    '''
+
+    t_max_rho = t_max ** (1 / rho)
+    t_min_rho = t_min ** (1 / rho)
+    s_in = x.new_ones([x.shape[0]])
+    xs = [None] * (k + 1)
+
+    # save initial x
+    xs[0] = x
+    x0 = x
+
+    if fix_noise:
+        # fixes the noise to always move along the same trajectory
+        noise  = torch.randn_like(x0)
+
+    # iterate using a fixed noise scale
+    t = (t_min_rho + t_step / (steps - 1) * (t_max_rho - t_min_rho)) ** rho
+
+    for k_step in range(1, k + 1):
+
+        if not fix_noise:
+            # if trajectory is not fixed, sample a random one
+            noise = torch.randn_like(x0)
+
+        # add noise
+        x = x0 + noise * np.sqrt(t ** 2 - t_min ** 2)
+
+        # denoise and save
+        x0 = distiller(x, t * s_in)
+        xs[k_step] = x0
+
+    return torch.cat(xs, 0)
+
+@torch.no_grad()
+def pc_sampler(
+    distiller, x, sigmas, ts, k, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
+    '''
+    k - number of corrector steps for each predictor step
+    '''
+
+    t_max_rho = t_max ** (1 / rho)
+    t_min_rho = t_min ** (1 / rho)
+    s_in = x.new_ones([x.shape[0]])
+    xs = [None] * (len(ts) - 1) * (k + 1)
+
+    if fix_noise:
+        noise = x.clone()
+
+    for i in range(len(ts) - 1):
+
+        if not fix_noise:
+            noise = torch.randn_like(x)
+
+        # get variance for ith iteration of predictor
+        t = (t_max_rho + ts[i] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
+
+        # add properly scaled noise for all iterations except the first one
+        # where x comes from standard gaussian and we scale it with highest variance
+        if i != 0:
+            x = x0 + noise * np.sqrt(t ** 2 - t_min ** 2)
+        else:
+            x *= sigmas[0]
+
+        # denoise and save
+        x0 = distiller(x, t * s_in)
+        xs[i * (k + 1)] = x0
+
+        # get variance for k corrector iterations
+        next_t = (t_max_rho + ts[i + 1] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
+        next_t = np.clip(next_t, t_min, t_max)
+
+        # iterate over corrector steps
+        for c_iter in range(k):
+
+            if not fix_noise:
+                noise = torch.randn_like(x)
+
+            # scale x0 with fixed noise scale
+            x = x0 + noise * np.sqrt(next_t ** 2 - t_min ** 2)
+
+            # denoise and save
+            x0 = distiller(x, next_t * s_in)
+            xs[i * (k + 1) + c_iter + 1] = x0
+
+    return torch.cat(xs, 0)
+
+@torch.no_grad()
+def cf_sampler(
+        distiller, 
+        x, 
+        sigmas, 
+        clf,
+        step_size,
+        k, 
+        t_step, 
+        t_min = 0.002, 
+        t_max = 80.0, 
+        rho = 7.0, 
+        steps = 40, 
+        fix_noise = False):
+    '''
+    t_step - timestep indicating the fixed noise scale
+    k - number of iterations on a fixed noise scale
+    '''
+    import wandb
+
+    def normalize(x):
+        x = x - x.min()
+        x = x / x.max()
+        return x
+
+    # as a quick fix, we manually move clf to proper device
+    clf = clf.to(x.device)
+
+    t_max_rho = t_max ** (1 / rho)
+    t_min_rho = t_min ** (1 / rho)
+    s_in = x.new_ones([x.shape[0]])
+    xs = [None] * (k + 1)
+    xs_cf = [None] * (k + 1)
+    xs_post_grad = [None] * k
+    xs_diff = [None] * k
+    xs_diff_post_grad = [None] * k
+
+    # save initial x
+    xs[0] = x
+    xs_cf[0] = x
+    x0 = x
+    gt = x.clone()
+
+    if fix_noise:
+        # fixes the noise to always move along the same trajectory
+        noise  = torch.randn_like(x0)
+
+    # iterate using a fixed noise scale
+    t = (t_min_rho + t_step / (steps - 1) * (t_max_rho - t_min_rho)) ** rho
+
+    # get original predictions
+    init_pred_class_idx = clf(normalize(x0)).argmax(dim = 1)
+
+    for k_step in range(1, k + 1):
+
+        # add scaled gradient of the classifier to x0
+        with torch.enable_grad():
+            x0.requires_grad_()
+
+            logits = clf(normalize(x0))
+
+            pred_class_logits = logits.gather(1, logits.argmax(dim = 1).unsqueeze(1))
+            grad = torch.autograd.grad(pred_class_logits.sum(), x0)[0]
+        
+            x0 = x0 - step_size * grad
+
+            x0 = x0.detach()
+
+        if not fix_noise:
+            # if trajectory is not fixed, sample a random one
+            noise = torch.randn_like(x0)
+
+        # save post gradient step x
+        x0_post_grad = x0.clone()
+        pred_class_idx = clf(normalize(x0_post_grad)).argmax(dim = 1)
+        x0_post_grad[pred_class_idx == init_pred_class_idx] = 0.
+        xs_post_grad[k_step - 1] = x0_post_grad
+
+        # save diffs
+        diff = (x0 - gt).abs()
+        diff[pred_class_idx == init_pred_class_idx] = 0.
+        xs_diff_post_grad[k_step - 1] = normalize(diff)
+
+        # TODO: maybe we can make an overlaying mask for the 
+        # gradient and replace only the parts within the mask
+
+        # add noise
+        x = x0 + noise * np.sqrt(t ** 2 - t_min ** 2)
+
+        # denoise and save
+        x0 = distiller(x, t * s_in)
+        xs[k_step] = x0
+
+        # check whether the predictions changed
+        pred_class_idx = clf(normalize(x0)).argmax(dim = 1)
+        cf = x0.clone()
+        cf[pred_class_idx == init_pred_class_idx] = 0.
+        xs_cf[k_step] = cf
+
+        diff = (x0 - gt).abs()
+        diff[pred_class_idx == init_pred_class_idx] = 0.
+        xs_diff[k_step - 1] = normalize(diff)
+
+    flipped = torch.cat(xs_cf, 0)
+    post_grad = torch.cat(xs_post_grad, 0)
+    diff = torch.cat(xs_diff, 0)
+
+    wandb.log({
+        'flipped': wandb.Image(flipped),
+        'post_grad': wandb.Image(post_grad),
+        'diff': wandb.Image(diff),
+        'diff_post_grad': wandb.Image(diff)})
+
+    return torch.cat(xs, 0)
 
 ### Progressive Distillation ###
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-#SBATCH --partition short
+#SBATCH --partition long
 #SBATCH --account=mi2lab-hi
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
 #SBATCH --mem=40G
-#SBATCH --time 24:00:00
+#SBATCH --time 48:00:00
 #SBATCH --job-name=icm
 #SBATCH --output=slurm_logs/icm-%A.log
 
@@ -23,12 +23,8 @@ conda activate icm
 cd /home2/faculty/bsobieski/icm
 
 # get script parameters
+export HYDRA_FULL_ERROR=1
 wandb online
 
-export HYDRA_FULL_ERROR=1
-
-for INTERVAL in {1..50}; do
-    srun python src/main.py \
-    --config-name cm_sampling_multistep_lsun_bedroom \
-    "sampler.ts=[$(seq -s , 0 $INTERVAL 150)]"
-done
+srun python src/main.py \
+--config-name cm_corrector_training_imagenet

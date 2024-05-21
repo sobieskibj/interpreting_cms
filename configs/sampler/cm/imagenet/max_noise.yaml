@@ -1,0 +1,8 @@
+_partial_: true
+_target_: model.cm.max_noise_sampler
+k: 10
+t_min: ${diffusion.sigma_min}
+t_max: ${diffusion.sigma_max}
+rho: ${diffusion.rho}
+steps: 201
+fix_noise: false

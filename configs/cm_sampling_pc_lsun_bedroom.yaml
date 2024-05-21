@@ -1,0 +1,23 @@
+defaults:
+  - _self_
+  - dataset: cm/lsun_bedroom/sampling
+  - model: cm/lsun_bedroom/sampling
+  - diffusion: cm/lsun_bedroom/sampling
+  - sampler: cm/lsun_bedroom/pc
+
+exp:
+  run_func: 
+    _target_: experiment.run_cm_sampling
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 8
+  batch_size: 8
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm
