@@ -58,12 +58,12 @@ def run(config: DictConfig):
     # make fabric
     fabric = get_fabric(config)
 
-    # setup components and dataloader
-    model, diffusion, sampler = get_components(config, fabric)
-    dataloader = get_dataloader(config, fabric)
-
     # automatically move each created tensor to proper device
     with fabric.init_tensor():
+
+        # setup components and dataloader
+        model, diffusion, sampler = get_components(config, fabric)
+        dataloader = get_dataloader(config, fabric)
         
         # get class conditioning and sigmas for sampling
         is_class_cond = utils.is_class_cond(config)
