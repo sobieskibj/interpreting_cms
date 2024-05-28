@@ -487,11 +487,12 @@ def cf_sampler(
 
 @torch.no_grad()
 def classifier_guidance_pc_sampler(
-        distiller, x, sigmas, ts, k, clf, target_class_id, grad_at_p, grad_at_c, step_size,
+        distiller, x, sigmas, ts, ks, clf, target_class_id, grad_at_p, grad_at_c, step_size,
         t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
     '''
-    k - number of corrector steps per predictor step
+    ks - number of corrector steps per each predictor step
     '''
+    import torch.nn.functional as F
 
     def normalize(x):
         x = x - x.min()
@@ -502,19 +503,20 @@ def classifier_guidance_pc_sampler(
     def get_clf_grad(x):
         x.requires_grad_()
         logits = clf(normalize(x))
-        target_class_logits = logits[:, target_class_id].unsqueeze(1)
-        grad = torch.autograd.grad(target_class_logits.sum(), x)[0]
+        log_probs = F.log_softmax(logits, dim = 0)
+        target_class_log_probs = log_probs[:, target_class_id].unsqueeze(1)
+        grad = torch.autograd.grad(target_class_log_probs.sum(), x)[0]
         return grad
 
     t_max_rho = t_max ** (1 / rho)
     t_min_rho = t_min ** (1 / rho)
     s_in = x.new_ones([x.shape[0]])
-    xs = [None] * (len(ts) - 1) * (k + 1)
+    xs = []
 
     if fix_noise:
         noise = x.clone()
 
-    for i in range(len(ts) - 1):
+    for i, k in zip(range(len(ts)), ks):
 
         if not fix_noise:
             noise = torch.randn_like(x)
@@ -531,15 +533,11 @@ def classifier_guidance_pc_sampler(
 
         # denoise and save
         x0 = distiller(x, t * s_in)
-        xs[i * (k + 1)] = x0
+        xs.append(x0)
 
         # optionally move along clf gradient
         if grad_at_p:
             x0 += step_size * get_clf_grad(x0)
-
-        # get variance for k corrector iterations
-        next_t = (t_max_rho + ts[i + 1] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
-        next_t = np.clip(next_t, t_min, t_max)
 
         # iterate over corrector steps
         for c_iter in range(k):
@@ -548,11 +546,11 @@ def classifier_guidance_pc_sampler(
                 noise = torch.randn_like(x)
 
             # scale x0 with fixed noise scale
-            x = x0 + noise * np.sqrt(next_t ** 2 - t_min ** 2)
+            x = x0 + noise * np.sqrt(t ** 2 - t_min ** 2)
 
             # denoise and save
-            x0 = distiller(x, next_t * s_in)
-            xs[i * (k + 1) + c_iter + 1] = x0
+            x0 = distiller(x, t * s_in)
+            xs.append(x0)
 
             # optionally move along clf gradient
             if grad_at_c:

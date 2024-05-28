@@ -2,7 +2,7 @@ _partial_: true
 _target_: model.cm.classifier_guidance_pc_sampler
 
 ts: ${exp.ts}
-k: ${exp.k}
+ks: ${exp.ks}
 
 clf:
   _target_: asset.classifier.ResNet50
