@@ -26,8 +26,8 @@ cd /home2/faculty/bsobieski/icm
 wandb online
 export HYDRA_FULL_ERROR=1
 
-STEPS_MAX=($(seq -s ' ' 4 2 40))
-STEPS_EVAL=(1 2 3 6 10 13 16 18 19 22 25 28 31 34 37 40)
+STEPS_MAX=($(seq -s ' ' 10 10 200))
+STEPS_EVAL=(8 22 36 50 64 78 92 106 120 134 148 162 176 190 195 200)
 
 for STEP_MAX in ${STEPS_MAX[@]}; do
 
