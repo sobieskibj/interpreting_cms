@@ -1,5 +1,5 @@
 _partial_: true
-_target_: model.cm.classifier_guidance_pc_sampler
+_target_: sampler.cm.cg_per_step_pc
 
 ts: ${exp.ts}
 ks: ${exp.ks}
