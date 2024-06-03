@@ -1,0 +1,33 @@
+defaults:
+  - _self_
+  - dataset: cm/imagenet/sampling
+  - model: cm/imagenet/sampling_no_cond
+  - diffusion: cm/imagenet/sampling
+  - sampler: cm/imagenet/cg_pc
+
+exp:
+  run_func: 
+    _target_: experiment.run_cm_sampling
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 8
+  batch_size: 2
+
+  grad_at_p: true
+  grad_at_c: true
+  target_class_id: 339
+  source_class_id: 
+  ks: [0, 63]
+  ts: [0, 40]
+  step_size: 0.001
+
+  scheduler_type: cos
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm
