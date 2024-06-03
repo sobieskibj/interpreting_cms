@@ -1,18 +1,13 @@
 _partial_: true
-_target_: sampler.cm.cg_per_step_pc
+_target_: sampler.cm.true_cg
 
 ts: ${exp.ts}
-ks: ${exp.ks}
 scheduler_type: ${exp.scheduler_type}
 
 clf:
   _target_: asset.classifier.ResNet50
 target_class_id: ${exp.target_class_id}
-grad_at_p: ${exp.grad_at_p}
-grad_at_c: ${exp.grad_at_c}
 step_size: ${exp.step_size}
-
-fix_noise: false
 
 t_min: ${diffusion.sigma_min}
 t_max: ${diffusion.sigma_max}

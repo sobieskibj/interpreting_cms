@@ -6,4 +6,4 @@ t_max: ${diffusion.sigma_max}
 rho: ${diffusion.rho}
 steps: 151
 fix_noise: false
-correction: true
+correction: false

@@ -3,7 +3,7 @@ defaults:
   - dataset: cm/imagenet/sampling
   - model: cm/imagenet/sampling_no_cond
   - diffusion: cm/imagenet/sampling
-  - sampler: cm/imagenet/cg_pc
+  - sampler: cm/imagenet/true_cg
 
 exp:
   run_func: 
@@ -12,16 +12,11 @@ exp:
   log_dir: # set during runtime to automatically created dir
 
   n_samples: 8
-  batch_size: 2
+  batch_size: 8
 
-  grad_at_p: true
-  grad_at_c: true
   target_class_id: 339
-  source_class_id: 
-  ks: [0, 63]
-  ts: [0, 40]
-  step_size: 0.001
-
+  ts: [0, 40, 42, 46, 48, 50, 200]
+  step_size: 0.5
   scheduler_type: cos
 
 fabric:
