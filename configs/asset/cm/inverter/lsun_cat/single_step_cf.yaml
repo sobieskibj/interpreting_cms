@@ -1,0 +1,22 @@
+_target_: asset.inverter.SingleStepCounterfactualInverter
+
+classifier:
+  _target_: asset.classifier.ResNet50
+
+optimizer_partial:
+  _partial_: true
+  _target_: torch.optim.AdamW
+  lr: ${exp.lr}
+
+stop_crit: ${exp.stop_crit}
+alpha: ${exp.alpha}
+t: ${exp.t}
+eval_ts: ${exp.eval_ts}
+target_class: ${exp.target_class_id}
+
+sigmas:
+  _target_: utils.cm.get_sigmas_karras_
+  steps: ${sampler.steps}
+  rho: ${diffusion.rho}
+  sigma_min: ${diffusion.sigma_min}
+  sigma_max: ${diffusion.sigma_max}
