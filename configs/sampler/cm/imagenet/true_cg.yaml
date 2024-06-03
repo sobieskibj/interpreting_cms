@@ -1,0 +1,15 @@
+_partial_: true
+_target_: sampler.cm.true_cg
+
+ts: ${exp.ts}
+scheduler_type: ${exp.scheduler_type}
+
+clf:
+  _target_: asset.classifier.ResNet50
+target_class_id: ${exp.target_class_id}
+step_size: ${exp.step_size}
+
+t_min: ${diffusion.sigma_min}
+t_max: ${diffusion.sigma_max}
+rho: ${diffusion.rho}
+steps: 201
