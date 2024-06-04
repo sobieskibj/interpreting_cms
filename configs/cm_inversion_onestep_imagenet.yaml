@@ -21,6 +21,8 @@ exp:
   lr: 0.01
   n_inv_steps: 2048
 
+  filter_class_idx: null
+
   log_every_n: 32
   eval_every_n: 128
 

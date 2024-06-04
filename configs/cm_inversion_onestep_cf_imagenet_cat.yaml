@@ -5,6 +5,7 @@ defaults:
   - diffusion: cm/lsun_cat/sampling
   - sampler: cm/lsun_cat/onestep
   - asset: cm/inverter/lsun_cat/single_step_cf
+  - similarity_loss: mse
 
 exp:
   run_func: 
@@ -16,7 +17,7 @@ exp:
   batch_size: 8
 
   alpha: 1.0
-  stop_crit: -1e+2
+  stop_crit: -1e+4
   t: 50
   eval_ts: [50]
   lr: 0.01

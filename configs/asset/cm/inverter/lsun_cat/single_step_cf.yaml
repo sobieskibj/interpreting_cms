@@ -3,6 +3,8 @@ _target_: asset.inverter.SingleStepCounterfactualInverter
 classifier:
   _target_: asset.classifier.ResNet50
 
+similarity_loss: ${similarity_loss}
+
 optimizer_partial:
   _partial_: true
   _target_: torch.optim.AdamW

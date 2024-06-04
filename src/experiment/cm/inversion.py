@@ -37,15 +37,15 @@ def get_denoiser(config, model, diffusion):
     return denoiser
 
 
-def update_pbar(pbar, loss, eval_loss):
-    pbar.set_description(f'loss: {loss}, evaluation loss: {eval_loss}')
-    wandb.log({
-        'losses/reconstruction': loss,
-        'losses/eval_reconstruction': eval_loss})
-
-
-def log_every_n(config, step, x, name):
+def update_pbar(config, step, scalars):
     if step % config.exp.log_every_n == 0:
+        wandb.log({f'losses/{k}': v for k, v in scalars.items()})
+            # 'losses/reconstruction': loss,
+            # 'losses/eval_reconstruction': eval_loss})
+
+
+def log_every_n(every_n, step, x, name):
+    if step % every_n == 0:
         utils.log_img(x, name)
 
 
@@ -73,28 +73,32 @@ def run(config: DictConfig):
 
             # make initial noise to optimize
             batch_noise = inverter.make_noise(batch_x)
-            inv_pbar = tqdm(range(config.exp.n_inv_steps))
+            eval_scalars, eval_imgs = {}, {}
 
-            for inv_step in inv_pbar:
+            for inv_step in tqdm(range(config.exp.n_inv_steps)):
 
                 # get model predictions
                 batch_x_hat = inverter.denoise(denoiser, batch_noise, batch_x)
-                log_every_n(config, inv_step, batch_x_hat, 'images/reconstruction')
+                log_every_n(config.exp.log_every_n, inv_step, batch_x_hat, 'images/reconstruction')
 
                 # make gradient step in noise 
                 loss = inverter.step(batch_x, batch_x_hat)
 
                 # run evaluation
-                if inv_step % config.exp.eval_every_n == 0:
-                    eval_loss, batch_x_hat_eval = inverter.evaluate(denoiser, batch_noise, batch_x)
-                    utils.log_img(batch_x_hat_eval, 'images/eval_reconstruction')
+                if inv_step % config.exp.eval_every_n == 0 and inv_step != 0:
+                    eval_scalars, eval_imgs = inverter.evaluate(denoiser, batch_noise, batch_x)
 
-                # log losses
-                update_pbar(inv_pbar, loss, eval_loss)
+                # log results
+                if inv_step % config.exp.log_every_n == 0:
+                    
+                    # scalars
+                    eval_scalars.update(loss)
+                    utils.log_scalars(eval_scalars)
+
+                    # imgs
+                    [utils.log_img(v, k) for k, v in eval_imgs.items()]
 
                 # check if stopping criterion is achieved
                 if inverter.stop:
                     log.info('Stopping criterion fulfilled')
                     break
-
-            inv_pbar.close()

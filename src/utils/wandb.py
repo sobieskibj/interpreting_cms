@@ -37,3 +37,6 @@ def log_img(x, name):
          x = make_grid(x, scale_each = True, normalize = True)
          x = to_pil_image(x)
          wandb.log({name: wandb.Image(x)})
+
+def log_scalars(scalars):
+    wandb.log(scalars)

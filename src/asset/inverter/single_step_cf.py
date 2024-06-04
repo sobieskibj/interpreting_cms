@@ -1,3 +1,4 @@
+import wandb
 import torch
 import torch.nn.functional as F
 
@@ -15,6 +16,7 @@ class SingleStepCounterfactualInverter(BaseInverter):
             self, 
             classifier: ClassifierBase,
             target_class: int,
+            similarity_loss: torch.nn.Module,
             alpha: float,
             optimizer_partial: torch.optim.Optimizer,
             stop_crit: float,
@@ -26,7 +28,8 @@ class SingleStepCounterfactualInverter(BaseInverter):
 
         self.clf = classifier
         self.target_class = target_class
-        
+        self.sim_loss = similarity_loss
+
         self.optimizer_partial = optimizer_partial
         self.stop_crit = stop_crit
         self.alpha = alpha
@@ -72,7 +75,8 @@ class SingleStepCounterfactualInverter(BaseInverter):
         # NOTE: softmax probably lowers the signal strength
         prob = F.softmax(self.clf(x_hat), dim = -1).\
             select(dim = 1, index = self.target_class).view(-1, 1)
-        return F.mse_loss(x, x_hat) - self.alpha * prob.mean()
+        sim = self.sim_loss(x, x_hat)
+        return sim.mean() - self.alpha * prob.mean()
 
 
     def denoise(self, denoiser, noise, x_0):
@@ -97,7 +101,7 @@ class SingleStepCounterfactualInverter(BaseInverter):
         if loss < self.stop_crit:
             self.stop = True
 
-        return loss
+        return {'losses/train': loss}
 
 
     @torch.no_grad()
@@ -118,19 +122,37 @@ class SingleStepCounterfactualInverter(BaseInverter):
         x_t = x_0 + noise * cs
         x_0_hat = denoiser(x_t, ones * sigma_ts)                
 
-        # check how many predictions changed to target class
+        # compute flip rate and targeted flip rate
         preds = F.softmax(self.clf(normalize(x_0_hat)), dim = -1).argmax(dim = 1)
-        flipped = preds == self.target_class
+
+        flipped = preds != self.preds
+        flipped_t = preds == self.target_class
+
         fr = (flipped * 1.).mean().item()
-        log.info(f'flip rate: {fr}')
+        fr_t = (flipped_t * 1.).mean().item()
 
         # evaluate
         loss = self.get_loss(x_0, x_0_hat)
 
         # zero out images which were not flipped
-        x_0_hat[~flipped] = 0.
+        x_0_hat_fr = x_0_hat.clone()
+        x_0_hat_fr[~flipped] = 0.
 
-        return loss.item(), x_0_hat
+        x_0_hat_fr_t = x_0_hat.clone()
+        x_0_hat_fr_t[~flipped_t] = 0.
+
+        # return dicts of results
+        imgs = {
+            'images/eval_reconstruction': x_0_hat,
+            'images/eval_flipped': x_0_hat_fr,
+            'images/eval_flipped_to_target': x_0_hat_fr_t}
+
+        scalars = {
+            'losses/eval': loss,
+            'flip_rate/default': fr,
+            'flip_rate/targeted': fr_t}
+
+        return scalars, imgs
 
 
     @property

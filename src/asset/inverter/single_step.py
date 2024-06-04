@@ -66,7 +66,7 @@ class SingleStepInverter(BaseInverter):
         if loss < self.stop_crit:
             self.stop = True
 
-        return loss
+        return {'losses/train': loss}
 
 
     @torch.no_grad()
@@ -88,9 +88,13 @@ class SingleStepInverter(BaseInverter):
         x_0_hat = denoiser(x_t, ones * sigma_ts)                
 
         # evaluate
-        loss = F.mse_loss(x_0, x_0_hat)
+        loss = F.mse_loss(x_0, x_0_hat).item()
 
-        return loss.item(), x_0_hat
+        # return dicts of results
+        scalars = {'losses/eval': loss}
+        imgs = {'images/eval_reconstruction': x_0_hat}
+
+        return scalars, imgs
 
 
     @property
