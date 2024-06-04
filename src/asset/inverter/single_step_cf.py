@@ -1,4 +1,4 @@
-import wandb
+import lpips
 import torch
 import torch.nn.functional as F
 
@@ -72,10 +72,16 @@ class SingleStepCounterfactualInverter(BaseInverter):
 
     def get_loss(self, x, x_hat):
         x, x_hat = normalize(x), normalize(x_hat)
+
         # NOTE: softmax probably lowers the signal strength
         prob = F.softmax(self.clf(x_hat), dim = -1).\
             select(dim = 1, index = self.target_class).view(-1, 1)
-        sim = self.sim_loss(x, x_hat)
+
+        if isinstance(self.sim_loss, lpips.lpips.LPIPS):
+            sim = self.sim_loss(from_01_to_m1p1(x), from_01_to_m1p1(x_hat))
+        else:
+            sim = self.sim_loss(x, x_hat)
+
         return sim.mean() - self.alpha * prob.mean()
 
 
@@ -169,3 +175,7 @@ def normalize(x):
     x = x - x.flatten(start_dim = 1).min(dim = 1)[0].view(-1, 1, 1, 1)
     x = x / x.flatten(start_dim = 1).max(dim = 1)[0].view(-1, 1, 1, 1)
     return x
+
+
+def from_01_to_m1p1(x):
+    return (x - 0.5) * 2

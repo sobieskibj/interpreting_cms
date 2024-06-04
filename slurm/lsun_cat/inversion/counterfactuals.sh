@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-#SBATCH --partition long
+#SBATCH --partition short
 #SBATCH --account=mi2lab-hi
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
 #SBATCH --mem=40G
-#SBATCH --time 48:00:00
+#SBATCH --time 24:00:00
 #SBATCH --job-name=icm
-#SBATCH --output=slurm_logs/icm-%A.log
+#SBATCH --array=1-6
+#SBATCH --output=slurm_logs/icm-%A-%a.log
 
 # echo file content to logs
 script_path=$(readlink -f "$0")
@@ -29,7 +30,7 @@ export HYDRA_FULL_ERROR=1
 
 T_STEPS=($(seq -s ' ' 10 20 150))
 LRS=(0.01 0.001)
-ALPHAS=(5.0 6.0)
+ALPHAS=(${SLURM_ARRAY_TASK_ID}.0)
 LOSSES=(lpips mse)
 
 for ITER in {0..63}; do
