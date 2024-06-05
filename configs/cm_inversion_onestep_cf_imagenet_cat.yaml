@@ -28,6 +28,7 @@ exp:
 
   log_every_n: 32
   eval_every_n: 128
+  log_imgs: false
 
 fabric:
   _target_: lightning.Fabric

@@ -6,7 +6,7 @@
 #SBATCH --mem=40G
 #SBATCH --time 24:00:00
 #SBATCH --job-name=icm
-#SBATCH --array=1-6
+#SBATCH --array=7-12
 #SBATCH --output=slurm_logs/icm-%A-%a.log
 
 # echo file content to logs

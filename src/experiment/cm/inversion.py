@@ -69,7 +69,8 @@ def run(config: DictConfig):
         for batch_idx, batch_x in enumerate(dataloader):
 
             log.info(f'Batch index: {batch_idx}')
-            utils.log_img(batch_x, 'images/gt')
+            if config.exp.log_imgs:
+                utils.log_img(batch_x, 'images/gt')
 
             # make initial noise to optimize
             batch_noise = inverter.make_noise(batch_x)
@@ -79,7 +80,8 @@ def run(config: DictConfig):
 
                 # get model predictions
                 batch_x_hat = inverter.denoise(denoiser, batch_noise, batch_x)
-                log_every_n(config.exp.log_every_n, inv_step, batch_x_hat, 'images/reconstruction')
+                if config.exp.log_imgs:
+                    log_every_n(config.exp.log_every_n, inv_step, batch_x_hat, 'images/reconstruction')
 
                 # make gradient step in noise 
                 loss = inverter.step(batch_x, batch_x_hat)
@@ -96,7 +98,8 @@ def run(config: DictConfig):
                     utils.log_scalars(eval_scalars)
 
                     # imgs
-                    [utils.log_img(v, k) for k, v in eval_imgs.items()]
+                    if config.exp.log_imgs:
+                        [utils.log_img(v, k) for k, v in eval_imgs.items()]
 
                 # check if stopping criterion is achieved
                 if inverter.stop:

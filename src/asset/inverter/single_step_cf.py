@@ -70,6 +70,14 @@ class SingleStepCounterfactualInverter(BaseInverter):
         return torch.sqrt(sigma_t ** 2 - self.sigma_min ** 2)
 
 
+    def get_sim_loss(self, x, x_hat):
+        if isinstance(self.sim_loss, lpips.lpips.LPIPS):
+            sim = self.sim_loss(from_01_to_m1p1(x), from_01_to_m1p1(x_hat))
+        else:
+            sim = self.sim_loss(x, x_hat)
+        return sim
+
+
     def get_loss(self, x, x_hat):
         x, x_hat = normalize(x), normalize(x_hat)
 
@@ -77,10 +85,7 @@ class SingleStepCounterfactualInverter(BaseInverter):
         prob = F.softmax(self.clf(x_hat), dim = -1).\
             select(dim = 1, index = self.target_class).view(-1, 1)
 
-        if isinstance(self.sim_loss, lpips.lpips.LPIPS):
-            sim = self.sim_loss(from_01_to_m1p1(x), from_01_to_m1p1(x_hat))
-        else:
-            sim = self.sim_loss(x, x_hat)
+        sim = self.get_sim_loss(x, x_hat)
 
         return sim.mean() - self.alpha * prob.mean()
 
@@ -139,6 +144,7 @@ class SingleStepCounterfactualInverter(BaseInverter):
 
         # evaluate
         loss = self.get_loss(x_0, x_0_hat)
+        sim_loss = self.get_sim_loss(x_0, x_0_hat).mean()
 
         # zero out images which were not flipped
         x_0_hat_fr = x_0_hat.clone()
@@ -155,6 +161,7 @@ class SingleStepCounterfactualInverter(BaseInverter):
 
         scalars = {
             'losses/eval': loss,
+            'losses/eval_sim': sim_loss,
             'flip_rate/default': fr,
             'flip_rate/targeted': fr_t}
 
