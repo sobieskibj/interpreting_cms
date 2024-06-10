@@ -1,3 +1,4 @@
+import wandb
 import copy
 import functools
 import os
@@ -324,6 +325,7 @@ class CMTrainLoop(TrainLoop):
             target_name = name.replace("model", "target_model")
             resume_target_checkpoint = os.path.join(path, target_name)
             if bf.exists(resume_target_checkpoint) and dist.get_rank() == 0:
+                logger.log(f"at rank: {dist.get_rank()}")
                 logger.log(
                     "loading model from checkpoint: {resume_target_checkpoint}..."
                 )
@@ -344,6 +346,7 @@ class CMTrainLoop(TrainLoop):
             resume_teacher_checkpoint = os.path.join(path, teacher_name)
 
             if bf.exists(resume_teacher_checkpoint) and dist.get_rank() == 0:
+                logger.log(f"at rank: {dist.get_rank()}")
                 logger.log(
                     "loading model from checkpoint: {resume_teacher_checkpoint}..."
                 )

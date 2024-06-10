@@ -18,14 +18,29 @@ from cm.script_util import (
 from cm.train_util import CMTrainLoop
 import torch.distributed as dist
 import copy
+import wandb
 
+def group_name_from_run_dir(dir):
+    parts = dir.split('-')[1:]
+    group = '-'.join(parts[:3])
+    name = '-'.join(parts[3:6])
+    return group, name
 
 def main():
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
-    logger.configure()
-
+    run_dir = logger.configure()
+    ## wandb init
+    group, name = group_name_from_run_dir(run_dir)
+    wandb.init(
+        project = args.project,
+        dir = run_dir,
+        group = group,
+        name = name,
+        config = args,
+        sync_tensorboard = True)
+    ##
     logger.log("creating model and diffusion...")
     ema_scale_fn = create_ema_and_scales_fn(
         target_ema_mode=args.target_ema_mode,
@@ -118,6 +133,7 @@ def main():
         target_model.convert_to_fp16()
 
     logger.log("training...")
+
     CMTrainLoop(
         model=model,
         target_model=target_model,
@@ -159,6 +175,7 @@ def create_argparser():
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,
+        project='icm'
     )
     defaults.update(model_and_diffusion_defaults())
     defaults.update(cm_train_defaults())
