@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-#SBATCH --partition short
+#SBATCH --partition long
 #SBATCH --account=mi2lab-hi
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=40G
-#SBATCH --time 0:10:00
+#SBATCH --mem=120G
+#SBATCH --time 5-00:00:00
 #SBATCH --job-name=icm
-#SBATCH --gpus=2
-#SBATCH --nodes=2
+#SBATCH --gpus=8
+#SBATCH --nodes=1
 #SBATCH --output=slurm_logs/icm-%A.log
 
 # echo file content to logs
@@ -17,19 +17,19 @@ cat $script_path
 source /etc/profile.d/slurm.sh
 
 # allow worker connection
-# export NCCL_IB_DISABLE=1
+export NCCL_IB_DISABLE=1
 export NCCL_DEBUG=INFO
 
 # activate env
 source /raid/shared/$USER/conda/etc/profile.d/conda.sh
 conda activate icm
-module load mpiexec
 
 # run exp
 cd /home2/faculty/bsobieski/icm/_legacy/scripts
 
-# mpiexec -hosts $SLURM_JOB_NODELIST
-mpiexec -n 2 -hosts $SLURM_JOB_NODELIST python cm_train.py \
+PATH_CKPT=../../weights/celebahq/training_ckpts/openai-2024-06-10-20-18-10-701815/model005000.pt
+
+mpiexec -n 8 python cm_train.py \
 --training_mode consistency_training \
 --target_ema_mode adaptive \
 --start_ema 0.95 \
@@ -57,4 +57,5 @@ mpiexec -n 2 -hosts $SLURM_JOB_NODELIST python cm_train.py \
 --weight_decay 0.0 \
 --weight_schedule uniform \
 --data_dir ../../data/celebahq/data \
---microbatch 2
+--microbatch 2 \
+# --resume_checkpoint ${PATH_CKPT}

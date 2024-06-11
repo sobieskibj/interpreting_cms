@@ -1,0 +1,25 @@
+defaults:
+  - _self_
+  - dataset: cm/celebahq/sampling
+  - model: cm/celebahq/sampling
+  - diffusion: cm/celebahq/sampling
+  - sampler: cm/celebahq/onestep
+
+exp:
+  run_func: 
+    _target_: experiment.run_cm_sampling
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 32
+  batch_size: 32
+
+  path_ckpt: ???
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm

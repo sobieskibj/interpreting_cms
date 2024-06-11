@@ -24,6 +24,6 @@ weights
 # Own
 **/__pycache__
 outputs
-wandb
+**/wandb
 slurm_logs
 data

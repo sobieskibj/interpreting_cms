@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - model: cm/celebahq/sampling
+  - diffusion: cm/celebahq/sampling
+  - sampler: cm/celebahq/onestep
+  - fid: default
+  - dataset@dataset: cm/celebahq/true_data
+  - dataset@noise_dataset: cm/celebahq/sampling
+
+exp:
+  run_func: 
+    _target_: experiment.run_compute_fid
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 2048
+  batch_size: 64
+
+  path_ckpt: ???
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm
