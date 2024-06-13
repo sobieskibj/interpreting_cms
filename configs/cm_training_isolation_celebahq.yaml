@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - dataset: cm/celebahq/true_data
+  - model: cm/celebahq/training_isolation
+  - model@target_model: cm/celebahq/training_isolation
+  - optimizer@model_optimizer: cm/celebahq/training/isolation/radam
+  - diffusion: cm/celebahq/training_isolation
+  - trainer: cm/isolation/celebahq/default
+
+exp:
+  run_func: 
+    _target_: experiment.run_training
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 8
+  batch_size: 2
+  total_training_steps: 16
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+  precision: 16-mixed
+
+wandb:
+  project: icm

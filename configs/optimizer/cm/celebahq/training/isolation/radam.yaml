@@ -1,0 +1,4 @@
+_partial_: true
+_target_: torch.optim.RAdam
+lr: 0.00005
+weight_decay: 0.0

@@ -39,5 +39,5 @@ class CelebAHQDataset(RealDataDataset):
         # if self.local_classes is not None:
         #     out_dict["y"] = np.array(self.local_classes[idx], dtype=np.int64)
 
-        return np.transpose(arr, [2, 0, 1])
+        return np.transpose(arr, [2, 0, 1]), {}
     
