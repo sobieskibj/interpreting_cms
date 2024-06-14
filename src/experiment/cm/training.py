@@ -1,6 +1,8 @@
+import os
 import copy
 import wandb
 import torch
+import blobfile as bf
 from torch import nn
 import functools
 from omegaconf import DictConfig
@@ -24,55 +26,16 @@ def get_fabric(config):
 
 
 def get_modules(config, fabric):
-    # init
     model = instantiate(config.model)
-    model_optimizer = instantiate(config.model_optimizer)(params = model.parameters())
-
     target_model = instantiate(config.target_model)
-
-    # set training mode
-    model.train()
-    target_model.train()
-
-    #
-    target_model.requires_grad_(False) # 290@train_util
-
-
-    # convert to fp16 NOTE: rather leave it to fabric
-    
-
-    # load checkpoints NOTE: could be done after fabric.setup
-
-    # NOTE: here optimizers must also be loaded
-
-
-    # TODO: load ema parameters: line 86 @ train_util
-
-
-    # TODO: make sure that we set the correct step, resume_step, global_step
-
-
-    # TODO: logic from MixedPrecisionTrainer
-
-    # move to fabric
-    model, model_optimizer = fabric.setup(model, model_optimizer)
-    target_model = fabric.setup(target_model)
-
-    return model, target_model, model_optimizer
-
-
-def get_objects(config):
-    diffusion = instantiate(config.diffusion)
-    ema_scale_fn = instantiate(config.ema_scale_fn)
-    schedule_sampler = instantiate(config.schedule_sampler)
-    
-    return diffusion, ema_scale_fn, schedule_sampler
+    optimizer = instantiate(config.optimizer)
+    return model, target_model, optimizer
 
 def get_dataloader(config, fabric):
     return fabric.setup_dataloaders(instantiate(config.dataset))
 
 
-class Trainer(nn.Module):
+class Trainer():
 
     def __init__(self,
             config, 
@@ -93,112 +56,155 @@ class Trainer(nn.Module):
             lr_anneal_steps,
             weight_decay,
             lr,
+            total_training_steps,
             microbatch,
             training_mode,
-            step,
-            resume_step,
-            global_step, 
             lg_loss_scale):
-        
-        super().__init__()
 
         logger.configure()
+        self.config = config
+        self.fabric = fabric
 
-        # 30@train_util
+        ## 29@train_util: TrainLoop
+        # 49@train_util
+        self.model = model
+        self.target_model = target_model
+        self.diffusion = diffusion
+        self.dataloader = dataloader
+        self.microbatch = microbatch
+        self.lr = lr
         self.ema_rate = ema_rate
         self.log_interval = log_interval
         self.save_interval = save_interval
         self.resume_checkpoint = resume_checkpoint
         self.use_fp16 = use_fp16
         self.fp16_scale_growth = fp16_scale_growth
-        self.lr_anneal_steps = lr_anneal_steps
+        self.schedule_sampler = schedule_sampler
         self.weight_decay = weight_decay
-        self.lr = lr
-        self.microbatch = microbatch
+        self.lr_anneal_steps = lr_anneal_steps
 
-        #
-        self.step = step
-        self.resume_step = resume_step
-        self.global_step = global_step
-        self.training_mode = training_mode
+        self.step = 0
+        self.resume_step = 0
+        self.global_batch = self.dataloader.batch_size * fabric.world_size
+        
+        # 75@train_utilL _load_and_sync_parameters
+        self._load_parameters()
+
+        # 129@cm_train
+        for dst, src in zip(self.target_model.parameters(), self.model.parameters()):
+            dst.data.copy_(src.data)
+
+        # 76@train_util: MixedPrecisionTrainer
+        self.use_fp16 = use_fp16
+        self.fp16_scale_growth = fp16_scale_growth
+        self.model_params = list(self.model.parameters())
+        self.master_params = self.model_params
+        self.param_groups_and_shapes = None
         self.lg_loss_scale = lg_loss_scale
 
-        # 
-        self.config = config
-        self.fabric = fabric
-        self.model = model
-        self.model_optimizer = model_optimizer
-        self.target_model = target_model
-        self.dataloader = dataloader
-        self.diffusion = diffusion
-        self.ema_scale_fn = ema_scale_fn
-        self.schedule_sampler = schedule_sampler
+        if self.use_fp16:
+            self.param_groups_and_shapes = get_param_groups_and_shapes(
+                self.model.named_parameters()
+            )
+            self.master_params = make_master_params(self.param_groups_and_shapes)
 
-        # temporarily hardcoded since we only want consistency training for now
-        self.teacher_model = None
-        self.teacher_diffusion = None
+        # 82@train_util
+        self.opt = model_optimizer(params = self.master_params)
 
-        #
-        self.ema_rate = ema_rate
-        self.global_batch = self.dataloader.batch_size * fabric.world_size
+        # fabric setup
+        self.model.train()
+        self.target_model.train()
 
-        #
-        self.master_params = list(self.model.parameters())
+        self.model = self.fabric.setup(self.model)
+        self.opt = self.fabric.setup_optimizers(self.opt)
+        self.target_model = self.fabric.setup(self.target_model)
 
+        # 85-96@train_util
         if self.resume_step:
             self._load_optimizer_state()
-            # Model was resumed, either due to a restart or a checkpoint
-            # being specified at the command line.
             self.ema_params = [
                 self._load_ema_parameters(rate) for rate in self.ema_rate
             ]
         else:
             self.ema_params = [
-                copy.deepcopy(list(self.model.parameters()))
+                copy.deepcopy(self.master_params)
                 for _ in range(len(self.ema_rate))
             ]
 
+        # 117@train_util
         self.step = self.resume_step
 
-        self.param_groups_and_shapes = get_param_groups_and_shapes(
-                self.model.named_parameters()
+        ## 267@train_util: CMTrainLoop
+        # 280@train_util
+        self.training_mode = training_mode
+        self.ema_scale_fn = ema_scale_fn
+        self.total_training_steps = total_training_steps
+
+        # 299@train_util
+        if self.target_model:
+            self._load_and_sync_target_parameters()
+            self.target_model.requires_grad_(False)
+            self.target_model.train()
+
+            self.target_model_param_groups_and_shapes = get_param_groups_and_shapes(
+                self.target_model.named_parameters()
             )
+            self.target_model_master_params = make_master_params(
+                self.target_model_param_groups_and_shapes
+            )
+
+        # 304@train_util
+        self.global_step = self.step
+
+        # placeholders
+        self.teacher_model = None
+
+        print("global batch size:", self.global_batch)
+
+    def _load_parameters(self):
+        # resume_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
+        resume_checkpoint = self.resume_checkpoint
+
+        if resume_checkpoint:
+            self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
+            # if dist.get_rank() == 0:
+            #     logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
+            #     self.model.load_state_dict(
+            #         dist_util.load_state_dict(
+            #             resume_checkpoint, map_location=dist_util.dev()
+            #         ),
+            #     )
+            logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
+            self.fabric.load_raw(resume_checkpoint, self.model)
+
+        # dist_util.sync_params(self.model.parameters())
+        # dist_util.sync_params(self.model.buffers())
 
 
     def run(self):
         saved = False
-        # while (
-        #     not self.lr_anneal_steps
-        #     or self.step < self.lr_anneal_steps
-        #     or self.global_step < self.total_training_steps
-        # ):
-        for batch, cond in self.dataloader:
             
-            if not (
-                not self.lr_anneal_steps
-                or self.step < self.lr_anneal_steps
-                or self.global_step < self.total_training_steps):
-                break
+        while (
+            not self.lr_anneal_steps
+            or self.step < self.lr_anneal_steps
+            or self.global_step < self.total_training_steps
+        ):
+            for batch, cond in self.dataloader:
 
-            # NOTE: for some reason fabric does not move batch
-            #       to fp16 so we do that manually
-            if batch.dtype != self.model.dtype:
-                batch = batch.to(self.model.dtype)
+                self.run_step(batch, cond)
 
-            self.run_step(batch, cond)
+                saved = False
+                if (
+                    self.global_step
+                    and self.save_interval != -1
+                    and self.global_step % self.save_interval == 0
+                ):
+                    self.save()
+                    saved = True
+                    torch.cuda.empty_cache()
 
-            saved = False
-            if (
-                self.global_step
-                and self.save_interval != -1
-                and self.global_step % self.save_interval == 0
-            ):
-                self.save()
-                saved = True
-                torch.cuda.empty_cache()
-
-            if self.global_step % self.log_interval == 0:
-                logger.dumpkvs()
+                if self.global_step % self.log_interval == 0:
+                    logger.dumpkvs()
 
         # Save the last checkpoint if it wasn't already saved.
         if not saved:
@@ -223,14 +229,15 @@ class Trainer(nn.Module):
 
 
     def forward_backward(self, batch, cond):
-        self.model_optimizer.zero_grad()
+        zero_grad(self.model_params) # self.mp_trainer.zero_grad()
+
         for i in range(0, batch.shape[0], self.microbatch):
             micro = batch[i : i + self.microbatch]
             micro_cond = {
                 k: v[i : i + self.microbatch]
                 for k, v in cond.items()
             }
-            # last_batch = (i + self.microbatch) >= batch.shape[0]
+            last_batch = (i + self.microbatch) >= batch.shape[0]
             t, weights = self.schedule_sampler.sample(micro.shape[0])
 
             ema, num_scales = self.ema_scale_fn(self.global_step)
@@ -278,13 +285,10 @@ class Trainer(nn.Module):
             else:
                 raise ValueError(f"Unknown training mode {self.training_mode}")
 
-            losses = compute_losses()
 
-            # if last_batch or not self.use_ddp:
-            #     losses = compute_losses()
-            # else:
-            #     with self.ddp_model.no_sync():
-            #         losses = compute_losses()
+            with self.fabric.no_backward_sync(self.model, enabled = not last_batch):
+                losses = compute_losses()
+
 
             if isinstance(self.schedule_sampler, LossAwareSampler):
                 self.schedule_sampler.update_with_local_losses(
@@ -296,14 +300,13 @@ class Trainer(nn.Module):
             self.log_loss_dict(
                 self.diffusion, t, {k: v * weights for k, v in losses.items()}
             )
-            # self.mp_trainer.backward(loss)
 
+            # self.mp_trainer.backward(loss)
             if self.use_fp16:
-                loss_scale = 2**self.lg_loss_scale
+                loss_scale = 2 ** self.lg_loss_scale
                 self.fabric.backward(loss * loss_scale)
             else:
                 self.fabric.backward(loss)
-
 
     def optimize(self):
         if self.use_fp16:
@@ -314,26 +317,24 @@ class Trainer(nn.Module):
 
     def _optimize_fp16(self):
         logger.logkv_mean("lg_loss_scale", self.lg_loss_scale)
-        # model_grads_to_master_grads(self.param_groups_and_shapes, self.master_params)
+        model_grads_to_master_grads(self.param_groups_and_shapes, self.master_params)
         grad_norm, param_norm = self._compute_norms(grad_scale=2**self.lg_loss_scale)
+
         if check_overflow(grad_norm):
             self.lg_loss_scale -= 1
             logger.log(f"Found NaN, decreased lg_loss_scale to {self.lg_loss_scale}")
-            # zero_master_grads(self.master_params)
-            self.model_optimizer.zero_grad()
+            zero_master_grads(self.master_params)
             return False
 
         logger.logkv_mean("grad_norm", grad_norm)
         logger.logkv_mean("param_norm", param_norm)
 
-        # for p in self.master_params:
-        for p in self.model.parameters():
+        for p in self.master_params:
             p.grad.mul_(1.0 / (2**self.lg_loss_scale))
-        # opt.step()
-        self.model_optimizer.step()
-        self.model_optimizer.zero_grad()
-        # zero_master_grads(self.master_params)
-        # master_params_to_model_params(self.param_groups_and_shapes, self.master_params)
+
+        self.opt.step()
+        zero_master_grads(self.master_params)
+        master_params_to_model_params(self.param_groups_and_shapes, self.master_params)
         self.lg_loss_scale += self.fp16_scale_growth
         return True
 
@@ -342,15 +343,14 @@ class Trainer(nn.Module):
         grad_norm, param_norm = self._compute_norms()
         logger.logkv_mean("grad_norm", grad_norm)
         logger.logkv_mean("param_norm", param_norm)
-        self.model_optimizer.step()
-        # opt.step()
+        self.opt.step()
         return True
 
 
     def _compute_norms(self, grad_scale=1.0):
         grad_norm = 0.0
         param_norm = 0.0
-        for p in self.model.parameters():
+        for p in self.master_params:
             with torch.no_grad():
                 param_norm += torch.norm(p, p=2, dtype=torch.float32).item() ** 2
                 if p.grad is not None:
@@ -401,7 +401,7 @@ class Trainer(nn.Module):
         # Save model parameters last to prevent race conditions where a restart
         # loads model at step N, but opt/ema state isn't saved for step N.
         # save_checkpoint(0, self.mp_trainer.master_params)
-        save_checkpoint(0, self.model.parameters())
+        save_checkpoint(0, self.master_params)
         # dist.barrier()
         self.fabric.barrier()
 
@@ -411,38 +411,90 @@ class Trainer(nn.Module):
             return
         frac_done = (self.step + self.resume_step) / self.lr_anneal_steps
         lr = self.lr * (1 - frac_done)
-        for param_group in self.model_optimizer.param_groups:
+        for param_group in self.opt.param_groups:
             param_group["lr"] = lr
+
+
+    def _load_ema_parameters(self, rate):
+        ema_params = copy.deepcopy(self.master_params)
+
+        # main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
+        main_checkpoint = self.resume_checkpoint
+        ema_checkpoint = find_ema_checkpoint(main_checkpoint, self.resume_step, rate)
+        if ema_checkpoint:
+            if self.fabric.global_rank == 0:
+                logger.log(f"loading EMA from checkpoint: {ema_checkpoint}...")
+                # state_dict = dist_util.load_state_dict(
+                #     ema_checkpoint, map_location=dist_util.dev()
+                # )
+                state_dict = torch.load(ema_checkpoint)
+                ema_params = self.state_dict_to_master_params(state_dict)
+
+        # dist_util.sync_params(ema_params)
+        return ema_params
 
 
     def _update_ema(self):
         for rate, params in zip(self.ema_rate, self.ema_params):
-            update_ema(params, self.model.parameters(), rate=rate)
+            update_ema(params, self.master_params, rate=rate)
 
 
     def _update_target_ema(self):
         target_ema, scales = self.ema_scale_fn(self.global_step)
         with torch.no_grad():
-            # update_ema(
-            #     self.target_model_master_params,
-            #     self.mp_trainer.master_params,
-            #     rate=target_ema,
-            # )
             update_ema(
-                self.target_model.parameters(),
-                self.model.parameters(),
+                self.target_model_master_params,
+                self.master_params,
                 rate=target_ema,
             )
-            # master_params_to_model_params(
-            #     self.target_model_param_groups_and_shapes,
-            #     self.target_model_master_params,
-            # )
+            master_params_to_model_params(
+                self.target_model_param_groups_and_shapes,
+                self.target_model_master_params,
+            )
+
+
+    def state_dict_to_master_params(self, state_dict):
+        return state_dict_to_master_params(self.model, state_dict, self.use_fp16)
 
 
     def master_params_to_state_dict(self, master_params):
         return master_params_to_state_dict(
             self.model, self.param_groups_and_shapes, master_params, self.use_fp16
         )
+
+
+    def _load_optimizer_state(self):
+        # main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
+        main_checkpoint = self.resume_checkpoint
+        opt_checkpoint = bf.join(
+            bf.dirname(main_checkpoint), f"opt{self.resume_step:06}.pt"
+        )
+        if bf.exists(opt_checkpoint):
+            logger.log(f"loading optimizer state from checkpoint: {opt_checkpoint}")
+            # state_dict = dist_util.load_state_dict(
+            #     opt_checkpoint, map_location=dist_util.dev()
+            # )
+            # self.opt.load_state_dict(state_dict)
+            self.fabric.load_raw(opt_checkpoint, self.opt)
+
+
+    def _load_and_sync_target_parameters(self):
+        # resume_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
+        resume_checkpoint = self.resume_checkpoint
+        if resume_checkpoint:
+            path, name = os.path.split(resume_checkpoint)
+            target_name = name.replace("model", "target_model")
+            resume_target_checkpoint = os.path.join(path, target_name)
+            if bf.exists(resume_target_checkpoint) and self.fabric.global_rank == 0:
+                logger.log(
+                    f"loading target model from checkpoint: {resume_target_checkpoint}..."
+                )
+                # self.target_model.load_state_dict(
+                #     dist_util.load_state_dict(
+                #         resume_target_checkpoint, map_location=dist_util.dev()
+                #     ),
+                # )
+                self.fabric.load_raw(resume_target_checkpoint, self.target_model)
 
 
     def log_step(self):
@@ -458,6 +510,31 @@ class Trainer(nn.Module):
             for sub_t, sub_loss in zip(ts.cpu().numpy(), values.detach().cpu().numpy()):
                 quartile = int(4 * sub_t / diffusion.num_timesteps)
                 logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
+
+
+def state_dict_to_master_params(model, state_dict, use_fp16):
+    if use_fp16:
+        named_ps = [(name, p) for name, p in model.named_parameters()]
+        named_ps = [(name.replace('_forward_module.', ''), p) for name, p in named_ps]
+        named_ps = [(name.replace('module.', ''), p) for name, p in named_ps]
+        named_model_params = [
+            (name, state_dict[name]) for name, _ in named_ps
+        ]
+        param_groups_and_shapes = get_param_groups_and_shapes(named_model_params)
+        master_params = make_master_params(param_groups_and_shapes)
+    else:
+        master_params = [state_dict[name] for name, _ in model.named_parameters()]
+    return master_params
+
+
+def find_ema_checkpoint(main_checkpoint, step, rate):
+    if main_checkpoint is None:
+        return None
+    filename = f"ema_{rate}_{(step):06d}.pt"
+    path = bf.join(bf.dirname(main_checkpoint), filename)
+    if bf.exists(path):
+        return path
+    return None
 
 
 def get_blob_logdir():
@@ -491,7 +568,7 @@ def master_params_to_state_dict(
         for master_param, (param_group, _) in zip(
             master_params, param_groups_and_shapes
         ):
-            import pdb; pdb.set_trace()
+
             for (name, _), unflat_master_param in zip(
                 param_group, unflatten_master_params(param_group, master_param.view(-1))
             ):
@@ -522,6 +599,84 @@ def get_param_groups_and_shapes(named_model_params):
     return [scalar_vector_named_params, matrix_named_params]
 
 
+def parse_resume_step_from_filename(filename):
+    """
+    Parse filenames of the form path/to/modelNNNNNN.pt, where NNNNNN is the
+    checkpoint's number of steps.
+    """
+    split = filename.split("model")
+    if len(split) < 2:
+        return 0
+    split1 = split[-1].split(".")[0]
+    try:
+        return int(split1)
+    except ValueError:
+        return 0
+
+
+def make_master_params(param_groups_and_shapes):
+    """
+    Copy model parameters into a (differently-shaped) list of full-precision
+    parameters.
+    """
+    master_params = []
+    for param_group, shape in param_groups_and_shapes:
+        master_param = nn.Parameter(
+            _flatten_dense_tensors(
+                [param.detach().float() for (_, param) in param_group]
+            ).view(shape)
+        )
+        master_param.requires_grad = True
+        master_params.append(master_param)
+    return master_params
+
+
+def model_grads_to_master_grads(param_groups_and_shapes, master_params):
+    """
+    Copy the gradients from the model parameters into the master parameters
+    from make_master_params().
+    """
+    for master_param, (param_group, shape) in zip(
+        master_params, param_groups_and_shapes
+    ):
+        master_param.grad = _flatten_dense_tensors(
+            [param_grad_or_zeros(param) for (_, param) in param_group]
+        ).view(shape)
+
+
+def param_grad_or_zeros(param):
+    if param.grad is not None:
+        return param.grad.data.detach()
+    else:
+        return torch.zeros_like(param)
+
+
+def zero_master_grads(master_params):
+    for param in master_params:
+        param.grad = None
+
+
+def master_params_to_model_params(param_groups_and_shapes, master_params):
+    """
+    Copy the master parameter data back into the model parameters.
+    """
+    # Without copying to a list, if a generator is passed, this will
+    # silently not copy any parameters.
+    for master_param, (param_group, _) in zip(master_params, param_groups_and_shapes):
+        for (_, param), unflat_master_param in zip(
+            param_group, unflatten_master_params(param_group, master_param.view(-1))
+        ):
+            param.detach().copy_(unflat_master_param)
+
+
+def zero_grad(model_params):
+    for param in model_params:
+        # Taken from https://pytorch.org/docs/stable/_modules/torch/optim/optimizer.html#Optimizer.add_param_group
+        if param.grad is not None:
+            param.grad.detach_()
+            param.grad.zero_()
+
+
 def run(config: DictConfig):
     utils.preprocess_config(config)
     utils.setup_wandb(config)
@@ -545,8 +700,6 @@ def run(config: DictConfig):
                             model_optimizer = model_optimizer,
                             target_model = target_model, 
                             dataloader = dataloader)
-
-        trainer = fabric.setup(trainer)
         
         # start training
         trainer.run()

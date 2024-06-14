@@ -2,7 +2,7 @@
 Logger copied from OpenAI baselines to avoid extra RL-based dependencies:
 https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/logger.py
 """
-
+import wandb
 import os
 import sys
 import shutil
@@ -346,10 +346,12 @@ class Logger(object):
     # ----------------------------------------
     def logkv(self, key, val):
         self.name2val[key] = val
+        wandb.log({key: val})
 
     def logkv_mean(self, key, val):
         oldval, cnt = self.name2val[key], self.name2cnt[key]
         self.name2val[key] = oldval * cnt / (cnt + 1) + val / (cnt + 1)
+        wandb.log({key: oldval * cnt / (cnt + 1) + val / (cnt + 1)})
         self.name2cnt[key] = cnt + 1
 
     def dumpkvs(self):
