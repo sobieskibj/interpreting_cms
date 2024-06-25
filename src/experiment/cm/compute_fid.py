@@ -89,6 +89,7 @@ def run(config: DictConfig):
         iterator = tqdm(enumerate(zip(data_loader, noise_loader)), total = total_length)
 
         for batch_idx, (batch_data, batch_noise) in iterator:
+            batch_data, batch_cond = batch_data
             batch_data = from_m1p1_to_01(batch_data)
 
             # create denoiser object separately for each batch

@@ -3,9 +3,10 @@
 #SBATCH --account=mi2lab-hi
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=120G
-#SBATCH --time 5-00:00:00
+#SBATCH --time 0-00:10:00
 #SBATCH --job-name=icm
-#SBATCH --gpus=8
+#SBATCH --gres=gpu:8
+#SBATCH --ntasks=8
 #SBATCH --nodes=1
 #SBATCH --output=slurm_logs/icm-%A.log
 
@@ -27,9 +28,10 @@ conda activate icm
 # run exp
 cd /home2/faculty/bsobieski/icm/_legacy/scripts
 
-PATH_CKPT=../../weights/celebahq/training_ckpts/openai-2024-06-10-20-18-10-701815/model005000.pt
+PATH_CKPT=../../weights/celebahq/training_ckpts/openai-2024-06-10-20-18-10-701815/model040000.pt
+export N_GPUS=8
 
-mpiexec -n 8 python cm_train.py \
+mpiexec -n $N_GPUS python cm_train.py \
 --training_mode consistency_training \
 --target_ema_mode adaptive \
 --start_ema 0.95 \
@@ -58,4 +60,4 @@ mpiexec -n 8 python cm_train.py \
 --weight_schedule uniform \
 --data_dir ../../data/celebahq/data \
 --microbatch 2 \
-# --resume_checkpoint ${PATH_CKPT}
+--resume_checkpoint ${PATH_CKPT}

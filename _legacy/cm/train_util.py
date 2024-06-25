@@ -122,13 +122,17 @@ class TrainLoop:
 
         if resume_checkpoint:
             self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
-            if dist.get_rank() == 0:
-                logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
-                self.model.load_state_dict(
-                    dist_util.load_state_dict(
-                        resume_checkpoint, map_location=dist_util.dev()
-                    ),
+            # if dist.get_rank() == 0:
+            #     logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
+            #     state_dict = dist_util.load_state_dict(
+            #             resume_checkpoint, map_location=dist_util.dev()
+            #         )
+            #     self.model.load_state_dict(state_dict,)
+            logger.log(f"loading model from checkpoint: {resume_checkpoint}...")
+            state_dict = dist_util.load_state_dict(
+                    resume_checkpoint, map_location=dist_util.dev()
                 )
+            self.model.load_state_dict(state_dict,)
 
         dist_util.sync_params(self.model.parameters())
         dist_util.sync_params(self.model.buffers())
@@ -139,12 +143,17 @@ class TrainLoop:
         main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
         ema_checkpoint = find_ema_checkpoint(main_checkpoint, self.resume_step, rate)
         if ema_checkpoint:
-            if dist.get_rank() == 0:
-                logger.log(f"loading EMA from checkpoint: {ema_checkpoint}...")
-                state_dict = dist_util.load_state_dict(
-                    ema_checkpoint, map_location=dist_util.dev()
-                )
-                ema_params = self.mp_trainer.state_dict_to_master_params(state_dict)
+            # if dist.get_rank() == 0:
+            #     logger.log(f"loading EMA from checkpoint: {ema_checkpoint}...")
+            #     state_dict = dist_util.load_state_dict(
+            #         ema_checkpoint, map_location=dist_util.dev()
+            #     )
+            #     ema_params = self.mp_trainer.state_dict_to_master_params(state_dict)
+            logger.log(f"loading EMA from checkpoint: {ema_checkpoint}...")
+            state_dict = dist_util.load_state_dict(
+                ema_checkpoint, map_location=dist_util.dev()
+            )
+            ema_params = self.mp_trainer.state_dict_to_master_params(state_dict)
 
         dist_util.sync_params(ema_params)
         return ema_params
@@ -324,10 +333,20 @@ class CMTrainLoop(TrainLoop):
             path, name = os.path.split(resume_checkpoint)
             target_name = name.replace("model", "target_model")
             resume_target_checkpoint = os.path.join(path, target_name)
-            if bf.exists(resume_target_checkpoint) and dist.get_rank() == 0:
+            # if bf.exists(resume_target_checkpoint) and dist.get_rank() == 0:
+            #     logger.log(f"at rank: {dist.get_rank()}")
+            #     logger.log(
+            #         f"loading model from checkpoint: {resume_target_checkpoint}..."
+            #     )
+            #     self.target_model.load_state_dict(
+            #         dist_util.load_state_dict(
+            #             resume_target_checkpoint, map_location=dist_util.dev()
+            #         ),
+            #     )
+            if bf.exists(resume_target_checkpoint):
                 logger.log(f"at rank: {dist.get_rank()}")
                 logger.log(
-                    "loading model from checkpoint: {resume_target_checkpoint}..."
+                    f"loading model from checkpoint: {resume_target_checkpoint}..."
                 )
                 self.target_model.load_state_dict(
                     dist_util.load_state_dict(

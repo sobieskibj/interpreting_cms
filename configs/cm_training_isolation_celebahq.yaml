@@ -13,7 +13,7 @@ exp:
   seed: 42
   log_dir: # set during runtime to automatically created dir
 
-  n_samples: 1_000_000
+  n_samples: 30_000
   batch_size: 256
   microbatch: 4
   total_training_steps: 10_000_000

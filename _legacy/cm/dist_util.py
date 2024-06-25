@@ -11,10 +11,11 @@ from mpi4py import MPI
 import torch as th
 import torch.distributed as dist
 
+from . import logger
 # Change this to reflect your cluster layout.
 # The GPU for a given rank is (rank % GPUS_PER_NODE).
-GPUS_PER_NODE = 8
-
+GPUS_PER_NODE = len(os.environ["SLURM_JOB_GPUS"].split(',')) // int(os.environ["SLURM_JOB_NUM_NODES"])
+print(f"GPUS_PER_NODE: {GPUS_PER_NODE}", flush = True)
 SETUP_RETRY_COUNT = 3
 
 
@@ -25,7 +26,7 @@ def setup_dist():
     if dist.is_initialized():
         return
     os.environ["CUDA_VISIBLE_DEVICES"] = f"{MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE}"
-
+    logger.log(f"CUDA_VISIBLE_DEVICES: {MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE}")
     comm = MPI.COMM_WORLD
     backend = "gloo" if not th.cuda.is_available() else "nccl"
 
@@ -33,12 +34,22 @@ def setup_dist():
         hostname = "localhost"
     else:
         hostname = socket.gethostbyname(socket.getfqdn())
+    logger.log(f"backend: {backend}")
+    logger.log(f"hostname: {hostname}")
+
     os.environ["MASTER_ADDR"] = comm.bcast(hostname, root=0)
     os.environ["RANK"] = str(comm.rank)
     os.environ["WORLD_SIZE"] = str(comm.size)
 
+    logger.log(f"MASTER_ADDR: {os.environ['MASTER_ADDR']}")
+    logger.log(f"RANK: {os.environ['RANK']}")
+    logger.log(f"WORLD_SIZE: {os.environ['WORLD_SIZE']}")
+
     port = comm.bcast(_find_free_port(), root=0)
     os.environ["MASTER_PORT"] = str(port)
+
+    logger.log(f"MASTER_PORT: {str(port)}")
+
     dist.init_process_group(backend=backend, init_method="env://")
 
 
@@ -60,15 +71,20 @@ def load_state_dict(path, **kwargs):
         with bf.BlobFile(path, "rb") as f:
             data = f.read()
         num_chunks = len(data) // chunk_size
+
         if len(data) % chunk_size:
             num_chunks += 1
         MPI.COMM_WORLD.bcast(num_chunks)
+
         for i in range(0, len(data), chunk_size):
+            print(f'rank 0: broadcasting {i}:{i + chunk_size}', flush = True)
             MPI.COMM_WORLD.bcast(data[i : i + chunk_size])
+
     else:
         num_chunks = MPI.COMM_WORLD.bcast(None)
         data = bytes()
         for _ in range(num_chunks):
+            print(f'rank {MPI.COMM_WORLD.Get_rank()}: broadcasting', flush = True)
             data += MPI.COMM_WORLD.bcast(None)
 
     return th.load(io.BytesIO(data), **kwargs)
