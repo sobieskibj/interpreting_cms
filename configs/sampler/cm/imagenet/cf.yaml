@@ -1,5 +1,5 @@
 _partial_: true
-_target_: model.cm.cf_sampler
+_target_: sampler.cm.classifier_free
 clf:
   _target_: asset.classifier.ResNet50
 step_size: 0.01

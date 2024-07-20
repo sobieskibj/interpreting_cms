@@ -1,6 +1,8 @@
 import math
-import torch
 import numpy as np
+import torch
+
+import torch.nn.functional as F
 
 @torch.no_grad()
 def cg_per_step_pc(
@@ -9,7 +11,6 @@ def cg_per_step_pc(
     '''
     ks - number of corrector steps per each predictor step
     '''
-    import torch.nn.functional as F
 
     def normalize(x):
         x = x - x.min()

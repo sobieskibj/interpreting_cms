@@ -1,5 +1,5 @@
 _partial_: true
-_target_: model.cm.fixed_noise_scale_sampler
+_target_: sampler.cm.fixed_noise
 t_step: 150
 k: 10
 t_min: ${diffusion.sigma_min}
