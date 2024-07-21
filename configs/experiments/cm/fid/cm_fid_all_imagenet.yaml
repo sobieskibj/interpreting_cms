@@ -1,0 +1,41 @@
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      sampler: cm/imagenet/cf, cm/imagenet/cg_pc, cm/imagenet/classic_pc, cm/imagenet/fixed_noise_scale, cm/imagenet/corrector_training, cm/imagenet/max_noise, cm/imagenet/multistep_fixed_noise, cm/imagenet/multistep, cm/imagenet/noiser_fixed_scale, cm/imagenet/onestep, cm/imagenet/per_step_pc, cm/imagenet/true_cg
+
+defaults:
+  - _self_
+  - model: cm/imagenet/sampling
+  - diffusion: cm/imagenet/sampling
+  - sampler: glob(*)
+  - fid: default
+  - dataset@dataset: cm/imagenet/true_data
+  - dataset@noise_dataset: cm/imagenet/sampling
+
+exp:
+  run_func: 
+    _target_: experiment.run_compute_fid
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 8
+  batch_size: 8
+
+  grad_at_p: true
+  grad_at_c: true
+  target_class_id: 339
+  ks: [0, 63]
+  k: 10
+  ts: [0, 40]
+  step_size: 0.001
+
+  scheduler_type: cos
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm
