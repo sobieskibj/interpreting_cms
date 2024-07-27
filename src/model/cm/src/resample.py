@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import torch as th
-from scipy.stats import norm
+# from scipy.stats import norm
 import torch.distributed as dist
 
 
@@ -17,8 +17,8 @@ def create_named_schedule_sampler(name, diffusion):
         return UniformSampler(diffusion)
     elif name == "loss-second-moment":
         return LossSecondMomentResampler(diffusion)
-    elif name == "lognormal":
-        return LogNormalSampler()
+    # elif name == "lognormal":
+    #     return LogNormalSampler()
     else:
         raise NotImplementedError(f"unknown schedule sampler: {name}")
 
@@ -157,24 +157,24 @@ class LossSecondMomentResampler(LossAwareSampler):
         return (self._loss_counts == self.history_per_term).all()
 
 
-class LogNormalSampler:
-    def __init__(self, p_mean=-1.2, p_std=1.2, even=False):
-        self.p_mean = p_mean
-        self.p_std = p_std
-        self.even = even
-        if self.even:
-            self.inv_cdf = lambda x: norm.ppf(x, loc=p_mean, scale=p_std)
-            self.rank, self.size = dist.get_rank(), dist.get_world_size()
+# class LogNormalSampler:
+#     def __init__(self, p_mean=-1.2, p_std=1.2, even=False):
+#         self.p_mean = p_mean
+#         self.p_std = p_std
+#         self.even = even
+#         if self.even:
+#             self.inv_cdf = lambda x: norm.ppf(x, loc=p_mean, scale=p_std)
+#             self.rank, self.size = dist.get_rank(), dist.get_world_size()
 
-    def sample(self, bs, device):
-        if self.even:
-            # buckets = [1/G]
-            start_i, end_i = self.rank * bs, (self.rank + 1) * bs
-            global_batch_size = self.size * bs
-            locs = (th.arange(start_i, end_i) + th.rand(bs)) / global_batch_size
-            log_sigmas = th.tensor(self.inv_cdf(locs), dtype=th.float32, device=device)
-        else:
-            log_sigmas = self.p_mean + self.p_std * th.randn(bs, device=device)
-        sigmas = th.exp(log_sigmas)
-        weights = th.ones_like(sigmas)
-        return sigmas, weights
+#     def sample(self, bs, device):
+#         if self.even:
+#             # buckets = [1/G]
+#             start_i, end_i = self.rank * bs, (self.rank + 1) * bs
+#             global_batch_size = self.size * bs
+#             locs = (th.arange(start_i, end_i) + th.rand(bs)) / global_batch_size
+#             log_sigmas = th.tensor(self.inv_cdf(locs), dtype=th.float32, device=device)
+#         else:
+#             log_sigmas = self.p_mean + self.p_std * th.randn(bs, device=device)
+#         sigmas = th.exp(log_sigmas)
+#         weights = th.ones_like(sigmas)
+#         return sigmas, weights
