@@ -31,6 +31,7 @@ exp:
   step_size: 0.001
 
   scheduler_type: cos
+  log_dir: /shared/results/z1173329/icm/outputs
 
 fabric:
   _target_: lightning.Fabric
