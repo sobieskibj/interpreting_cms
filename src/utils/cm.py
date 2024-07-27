@@ -1,6 +1,6 @@
 import torch
 
-from model.cm.src.karras_samplers import append_zero
+from model.cm.src.karras_diffusion import append_zero
 
 def get_sampler_name(sampler_target):
     return sampler_target.split('.')[-1]
