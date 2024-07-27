@@ -8,7 +8,7 @@ defaults:
   - _self_
   - model: cm/imagenet/sampling
   - diffusion: cm/imagenet/sampling
-  - sampler: glob(*)
+  - sampler: ???
   - fid: default
   - dataset@dataset: cm/imagenet/true_data
   - dataset@noise_dataset: cm/imagenet/sampling
