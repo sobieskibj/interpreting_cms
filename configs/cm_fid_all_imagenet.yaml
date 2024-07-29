@@ -17,6 +17,7 @@ exp:
   run_func: 
     _target_: experiment.run_compute_fid
   seed: 42
+  log_determ: true
   log_dir: # set during runtime to automatically created dir
 
   n_samples: 8
