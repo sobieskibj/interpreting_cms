@@ -9,7 +9,6 @@ exp:
   run_func: 
     _target_: ???
   seed: 42
-  log_determ: false
   log_dir: # set during runtime to automatically created dir
   
 fabric:
