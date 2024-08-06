@@ -107,7 +107,7 @@ def run(config: DictConfig):
 
             # run sampler with the denoiser to obtain images
             batch_x_0 = sampler(distiller = denoiser, x = batch_noise, sigmas = sigmas)
-            batch_x_0 = torch.split(batch_x_0, config.exp.batch_size, 0)[:-1]
+            batch_x_0 = torch.split(batch_x_0, config.exp.batch_size, 0)[-1]
             assert batch_x_0.shape[0] == batch_data.shape[0]
             batch_x_0 = batch_x_0.clamp(-1, 1)
             batch_x_0 = from_m1p1_to_01(batch_x_0)
