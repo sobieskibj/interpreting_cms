@@ -14,6 +14,18 @@ pip3 install -e .
 cd ..
 pip3 install hydra-core --upgrade
 pip install lightning wandb tensorboard
+
+# Athena
+conda create -n icm python=3.10
+conda activate icm
+module load CUDA/12.0.0
+conda install mpi4py
+pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 --index-url https://download.pytorch.org/whl/cu121
+export LD_LIBRARY_PATH=/net/pr2/projects/plgrid/plggtriplane/sobieskibj/miniconda3/envs/icm_v2/lib/python3.10/site-packages/nvidia/nvjitlink/lib:$LD_LIBRARY_PATH
+cd _legacy
+pip3 install -e .
+pip3 install hydra-core --upgrade
+pip install lightning wandb tensorboard
 ```
 
 This ensures that both the legacy CMs code and new codebase can be run with the same environment.

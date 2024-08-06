@@ -1,6 +1,7 @@
 from tqdm import tqdm
 import wandb
 import torch
+import torch.nn.functional as F
 from omegaconf import DictConfig
 from hydra.utils import instantiate
 from torchvision.utils import make_grid
@@ -76,7 +77,10 @@ def run(config: DictConfig):
     with fabric.init_tensor():
 
         # setup components and dataloader
+        log.info(f"Creating components")
         model, diffusion, sampler, fid = get_components(config, fabric)
+
+        log.info(f"Creating dataloader")
         data_loader, noise_loader = get_dataloaders(config, fabric)
         
         # get class conditioning and sigmas for sampling
@@ -88,8 +92,13 @@ def run(config: DictConfig):
         total_length = get_total_length(data_loader)
         iterator = tqdm(enumerate(zip(data_loader, noise_loader)), total = total_length)
 
+        log.info(f"Computing FID")
+        
         for batch_idx, (batch_data, batch_noise) in iterator:
-            batch_data, batch_cond = batch_data
+            
+            if isinstance(batch_data, tuple):
+                batch_data, batch_cond = batch_data
+            
             batch_data = from_m1p1_to_01(batch_data)
 
             # create denoiser object separately for each batch
@@ -98,8 +107,13 @@ def run(config: DictConfig):
 
             # run sampler with the denoiser to obtain images
             batch_x_0 = sampler(distiller = denoiser, x = batch_noise, sigmas = sigmas)
+            assert batch_x_0.shape[0] == batch_data.shape[0]
             batch_x_0 = batch_x_0.clamp(-1, 1)
             batch_x_0 = from_m1p1_to_01(batch_x_0)
+
+            # upsample to proper size for inception
+            batch_x_0 = F.interpolate(batch_x_0, (299, 299))
+            batch_data = F.interpolate(batch_data, (299, 299))
 
             # compute FID features
             ftrs_true_ = fid.features(batch_data)
@@ -112,7 +126,7 @@ def run(config: DictConfig):
             if batch_idx == 0:
                 log_batch_imgs("true", batch_data)
                 log_batch_imgs("synt", batch_x_0)
-
+        
         ftrs_true, ftrs_synt = torch.cat(ftrs_true), torch.cat(ftrs_synt)
         v = fid(ftrs_synt, ftrs_true)
         log.info(f"FID: {v}")

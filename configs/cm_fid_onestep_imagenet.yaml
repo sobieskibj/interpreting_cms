@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - model: cm/imagenet/sampling
+  - diffusion: cm/imagenet/sampling
+  - sampler: cm/imagenet/onestep
+  - fid: default
+  - dataset@dataset: cm/imagenet/true_data
+  - dataset@noise_dataset: cm/imagenet/sampling
+
+exp:
+  run_func: 
+    _target_: experiment.run_compute_fid
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 2048
+  batch_size: 256
+
+  path_ckpt: ???
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm

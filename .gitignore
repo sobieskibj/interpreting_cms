@@ -27,3 +27,4 @@ outputs
 **/wandb
 slurm_logs
 data
+results
