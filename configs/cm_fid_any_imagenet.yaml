@@ -1,9 +1,3 @@
-hydra:
-  mode: MULTIRUN
-  sweeper:
-    params:
-      sampler: cm/imagenet/cf, cm/imagenet/cg_pc, cm/imagenet/classic_pc, cm/imagenet/fixed_noise_scale, cm/imagenet/corrector_training, cm/imagenet/max_noise, cm/imagenet/multistep_fixed_noise, cm/imagenet/multistep, cm/imagenet/noiser_fixed_scale, cm/imagenet/onestep, cm/imagenet/per_step_pc, cm/imagenet/true_cg
-
 defaults:
   - _self_
   - model: cm/imagenet/sampling
@@ -19,8 +13,8 @@ exp:
   seed: 42
   log_dir: # set during runtime to automatically created dir
 
-  n_samples: 8
-  batch_size: 8
+  n_samples: 10240
+  batch_size: 512
 
   grad_at_p: true
   grad_at_c: true
@@ -29,7 +23,7 @@ exp:
   k: 10
   ts: [0, 40]
   step_size: 0.001
-
+  # TODO return last
   scheduler_type: cos
 
 fabric:
