@@ -22,23 +22,23 @@ cd /home2/faculty/jmiksa/icm
 wandb online
 export HYDRA_FULL_ERROR=1
 
-declare -a samplers = ("cm/imagenet/onestep", 
-    "cm/imagenet/multistep", 
-    "cm/imagenet/classic_pc",
-    "cm/imagenet/cf", 
-    "cm/imagenet/cg_pc",  
-    "cm/imagenet/fixed_noise_scale", 
-    "cm/imagenet/corrector_training", 
-    "cm/imagenet/max_noise", 
-    "cm/imagenet/multistep_fixed_noise", 
-    "cm/imagenet/noiser_fixed_scale",  
-    "cm/imagenet/per_step_pc", 
+declare -a samplers=("cm/imagenet/onestep" 
+    "cm/imagenet/multistep" 
+    "cm/imagenet/classic_pc"
+    "cm/imagenet/cf" 
+    "cm/imagenet/cg_pc"  
+    "cm/imagenet/fixed_noise_scale" 
+    "cm/imagenet/corrector_training" 
+    "cm/imagenet/max_noise" 
+    "cm/imagenet/multistep_fixed_noise" 
+    "cm/imagenet/noiser_fixed_scale"  
+    "cm/imagenet/per_step_pc" 
     "cm/imagenet/true_cg")
 
 for sampler in "${samplers[@]}"; do
 
     srun python src/main.py \
     --config-name cm_fid_any_imagenet \
-    sampler=$sampler
+    'sampler=${sampler}'
 
 done
