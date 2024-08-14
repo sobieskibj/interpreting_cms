@@ -17,6 +17,13 @@ def get_sigmas_karras(config):
     sigmas = (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
     return append_zero(sigmas)
 
+def get_sigmas_karras_(steps, rho, sigma_min, sigma_max):
+    ramp = torch.linspace(0, 1, steps)
+    min_inv_rho = sigma_min ** (1 / rho)
+    max_inv_rho = sigma_max ** (1 / rho)
+    sigmas = (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
+    return sigmas
+
 def is_class_cond(config):
     '''
     Use class conditioning if num_classes was provided

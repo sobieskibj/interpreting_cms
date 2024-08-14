@@ -1,0 +1,35 @@
+defaults:
+  - _self_
+  - dataset: cm/imagenet/true_data
+  - model: cm/imagenet/inversion
+  - diffusion: cm/imagenet/sampling
+  - sampler: cm/imagenet/onestep
+  - asset: cm/inverter/imagenet/single_step
+
+exp:
+  run_func: 
+    _target_: experiment.run_inversion
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 8
+  batch_size: 8
+
+  stop_crit: 1e-7
+  t: 30
+  eval_ts: [2, 4, 8, 12, 16, 22, 26, 30]
+  lr: 0.01
+  n_inv_steps: 2048
+
+  filter_class_idx: null
+
+  log_every_n: 32
+  eval_every_n: 128
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm

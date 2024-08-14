@@ -746,9 +746,7 @@ class UNetModel(nn.Module):
         if use_fp16:
             self.convert_to_fp16()
 
-        if train:
-            self.train()
-        else:
+        if not train:
             self.eval()
 
         if path_ckpt:

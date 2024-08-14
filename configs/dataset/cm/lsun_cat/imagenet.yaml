@@ -2,7 +2,7 @@ _target_: torch.utils.data.DataLoader
 dataset: 
   _target_: dataset.cm.ImageNetDataset
   n_samples: ${exp.n_samples}
-  img_size: 64
+  img_size: 256
   split: validation
   random_crop: false
   random_flip: true

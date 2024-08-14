@@ -1,0 +1,39 @@
+defaults:
+  - _self_
+  - dataset: cm/lsun_cat/imagenet
+  - model: cm/lsun_cat/inversion
+  - diffusion: cm/lsun_cat/sampling
+  - sampler: cm/lsun_cat/onestep
+  - asset: cm/inverter/lsun_cat/single_step_cf
+  - similarity_loss: mse
+
+exp:
+  run_func: 
+    _target_: experiment.run_inversion
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+
+  n_samples: 8
+  batch_size: 8
+
+  alpha: 1.0
+  stop_crit: -1e+4
+  t: 50
+  eval_ts: [50]
+  lr: 0.01
+  n_inv_steps: 2048
+
+  target_class_id: 282 # tiger cat
+  filter_class_idx: [281] # tabby
+
+  log_every_n: 32
+  eval_every_n: 128
+  log_imgs: false
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm
