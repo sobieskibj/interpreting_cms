@@ -3,7 +3,16 @@ import numpy as np
 
 @torch.no_grad()
 def classic_pc(
-    distiller, x, sigmas, ts, k, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False):
+    distiller, 
+    x, 
+    sigmas, 
+    ts, 
+    k, 
+    t_min = 0.002, 
+    t_max = 80.0, 
+    rho = 7.0, 
+    steps = 40, 
+    fix_noise = False):
     '''
     k - number of corrector steps for each predictor step
     '''
@@ -13,11 +22,16 @@ def classic_pc(
     s_in = x.new_ones([x.shape[0]])
     xs = [None] * (len(ts) - 1) * (k + 1)
 
+    for i in range(len(ts) - 1):
+        print(f"p:{ts[i]}")
+        for c_iter in range(k):
+            print(f"c:{ts[i + 1]}")
+
     if fix_noise:
         noise = x.clone()
 
     for i in range(len(ts) - 1):
-
+        
         if not fix_noise:
             noise = torch.randn_like(x)
 

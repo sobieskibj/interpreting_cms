@@ -95,8 +95,8 @@ def run(config: DictConfig):
         log.info(f"Computing FID")
         
         for batch_idx, (batch_data, batch_noise) in iterator:
-            
-            if isinstance(batch_data, tuple):
+
+            if isinstance(batch_data, list):
                 batch_data, batch_cond = batch_data
             
             batch_data = from_m1p1_to_01(batch_data)
@@ -131,3 +131,4 @@ def run(config: DictConfig):
         ftrs_true, ftrs_synt = torch.cat(ftrs_true), torch.cat(ftrs_synt)
         v = fid(ftrs_synt, ftrs_true)
         log.info(f"FID: {v}")
+        wandb.log({"fid": v})

@@ -2,7 +2,7 @@ defaults:
   - _self_
   - model: cm/imagenet/sampling
   - diffusion: cm/imagenet/sampling
-  - sampler: cm/imagenet/onestep
+  - sampler: cm/imagenet/multistep
   - fid: default
   - dataset@dataset: cm/imagenet/true_data
   - dataset@noise_dataset: cm/imagenet/sampling

@@ -3,7 +3,16 @@ import numpy as np
 
 @torch.no_grad()
 def multi_step(
-    distiller, x, sigmas, ts, t_min = 0.002, t_max = 80.0, rho = 7.0, steps = 40, fix_noise = False, correction = True):
+    distiller, 
+    x, 
+    sigmas, 
+    ts, 
+    t_min = 0.002, 
+    t_max = 80.0, 
+    rho = 7.0, 
+    steps = 40, 
+    fix_noise = False, 
+    correction = True):
 
     t_max_rho = t_max ** (1 / rho)
     t_min_rho = t_min ** (1 / rho)
@@ -15,6 +24,9 @@ def multi_step(
 
     # scale to proper std
     x =  x * sigmas[0]
+
+    for i in range(len(ts) - 1):
+        print(f"p:{ts[i]}")
 
     for i in range(len(ts) - 1):
         t = (t_max_rho + ts[i] / (steps - 1) * (t_min_rho - t_max_rho)) ** rho
@@ -31,5 +43,5 @@ def multi_step(
             x = x0 + noise * np.sqrt(next_t**2 - t_min**2)
         else:
             x = x0 + noise * next_t
-
+            
     return torch.cat(xs, 0)

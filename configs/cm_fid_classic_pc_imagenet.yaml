@@ -2,7 +2,7 @@ defaults:
   - _self_
   - model: cm/imagenet/sampling
   - diffusion: cm/imagenet/sampling
-  - sampler: cm/imagenet/onestep
+  - sampler: cm/imagenet/classic_pc
   - fid: default
   - dataset@dataset: cm/imagenet/true_data
   - dataset@noise_dataset: cm/imagenet/sampling
@@ -17,6 +17,8 @@ exp:
   batch_size: 512
 
   path_ckpt: ???
+  ts: [0, 106, 200]
+  k: 1
 
 fabric:
   _target_: lightning.Fabric
