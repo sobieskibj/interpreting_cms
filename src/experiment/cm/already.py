@@ -22,7 +22,9 @@ def get_components(config, fabric):
     model = fabric.setup(instantiate(config.model))
     diffusion = instantiate(config.diffusion)
     inverter = fabric.setup(instantiate(config.asset))
-    return model, diffusion, inverter
+    already_loss = fabric.setup(instantiate(config.already_loss))
+    h_move = fabric.setup(instantiate(config.h_move))
+    return model, diffusion, inverter, already_loss, h_move
 
 
 def get_dataloader(config, fabric):
@@ -41,18 +43,6 @@ def get_denoiser(config, model, diffusion):
     return denoiser
 
 
-def update_pbar(config, step, scalars):
-    if step % config.exp.log_every_n == 0:
-        wandb.log({f'losses/{k}': v for k, v in scalars.items()})
-            # 'losses/reconstruction': loss,
-            # 'losses/eval_reconstruction': eval_loss})
-
-
-def log_every_n(every_n, step, x, name):
-    if step % every_n == 0:
-        utils.log_img(x, name)
-
-
 def run(config: DictConfig):
     utils.preprocess_config(config)
     utils.setup_wandb(config)
@@ -61,5 +51,19 @@ def run(config: DictConfig):
     fabric = get_fabric(config)
 
     # setup components and dataloader
-    model, diffusion, inverter = get_components(config, fabric)
+    model, diffusion, inverter, already_loss = get_components(config, fabric)
     dataloader = get_dataloader(config, fabric)
+
+    # automatically move each created tensor to proper device
+    with fabric.init_tensor():
+
+        # create denoiser with no class conditioning
+        denoiser = get_denoiser(config, model, diffusion)
+
+        for batch_idx, batch_x in enumerate(dataloader):
+
+            # find noise that inverts the original image
+            batch_noise = inverter.invert(batch_x, denoiser)
+
+            # optimize h move wrt to already loss
+            

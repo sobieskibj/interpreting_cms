@@ -9,14 +9,16 @@ class SingleStepInverter(BaseInverter):
     def __init__(
             self, 
             optimizer_partial: torch.optim.Optimizer,
-            stop_crit: float,
+            loss_stop_crit: float,
+            n_iters: int,
             sigmas: torch.Tensor,
             eval_ts: list[int],
             t: int):
         
         super().__init__()
         self.optimizer_partial = optimizer_partial
-        self.stop_crit = stop_crit
+        self.loss_stop_crit = loss_stop_crit
+        self.n_iters = n_iters
         self.register_buffer('sigmas', sigmas.flip(0))
         self.register_buffer('sigma_min', sigmas.min())
         assert self.sigma_min > 0
@@ -61,12 +63,25 @@ class SingleStepInverter(BaseInverter):
 
         loss = loss.item()
 
-        # NOTE: this depends on batch size, i.e. stops if and
-        #       and only if the _combined_ loss satisfies the criterion
+        # NOTE: this depends on batch size, i.e. stops if 
+        #       the _combined_ loss satisfies the criterion
         if loss < self.stop_crit:
             self.stop = True
 
         return {'losses/train': loss}
+
+
+    def invert(self, batch_x_0, denoiser):
+        # make initial noise
+        batch_noise = self.make_noise(batch_x_0)
+        
+        # iteratively invert
+        for iter in range(self.n_iters):
+            batch_x_0_hat = self.denoise(denoiser, batch_noise, batch_x_0)
+            self.step(batch_x_0, batch_x_0_hat)
+
+        # return noise that inverts the image
+        return batch_noise
 
 
     @torch.no_grad()
