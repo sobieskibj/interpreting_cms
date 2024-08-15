@@ -2,3 +2,4 @@ from .standard_normal_noise import StandardNormalNoiseDataset
 from .standard_normal_single_noise import StandardNormalSingleNoiseDataset
 from .imagenet import ImageNetDataset
 from .celebahq import CelebAHQDataset
+from .lsun_bedroom_already import LSUNBedroomAlready

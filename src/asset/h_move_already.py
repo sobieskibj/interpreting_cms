@@ -9,9 +9,7 @@ class HMoveAlready(nn.Module):
     def __init__(
             self, 
             shape: str|list, 
-            norm_scale: float,
             id: str, 
-            step_size: list, 
             use: bool,
             use_fp16: bool,
             print_shapes: bool,
@@ -33,11 +31,10 @@ class HMoveAlready(nn.Module):
         path_load - optional path from which the object will be loaded.
         '''
         super().__init__()
-        assert isinstance(step_size, omegaconf.listconfig.ListConfig) and len(step_size) == 2
         self.use_fp16 = use_fp16
         self.use = use
         self.id = id
-        self.dir = self.get_dir(shape)
+        self.dir = torch.nn.Parameter(self.get_dir(shape))
         self.load(path_load)
         self.path_save = Path(path_save)
         self.print_shapes = print_shapes
@@ -55,11 +52,12 @@ class HMoveAlready(nn.Module):
         # create wandb artifact and add ckpt
         art = wandb.Artifact(name = 'h_move', type = 'model')
         art.add_file(path_save)
-        import pdb; pdb.set_trace()
+
 
     def load(self, path_load):
         if path_load is not None:
             self.load_state_dict(torch.load(path_load))
+
 
     def get_dir(self, shape):
         '''
@@ -72,6 +70,7 @@ class HMoveAlready(nn.Module):
 
         return dir
         
+
     def move(self, h, block_id):
         assert block_id is not None, 'Block must be assigned an identifier'
 
@@ -83,6 +82,7 @@ class HMoveAlready(nn.Module):
         
         else:
             return h
+
 
     def forward(self, x):
         pass

@@ -1,7 +1,13 @@
 import torch
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from .base import BaseInverter
+
+
+import logging
+log = logging.getLogger(__name__)
+
 
 class SingleStepInverter(BaseInverter):
 
@@ -47,7 +53,6 @@ class SingleStepInverter(BaseInverter):
 
 
     def denoise(self, denoiser, noise, x_0):
-        self.optimizer.zero_grad()
         sigma_t = self.sigmas[self.t]
         c = self.get_noise_scale(sigma_t)
         x_t = x_0 + noise * c
@@ -60,12 +65,12 @@ class SingleStepInverter(BaseInverter):
         loss = F.mse_loss(batch_x, batch_x_hat)
         loss.backward()
         self.optimizer.step()
-
+        self.optimizer.zero_grad()
         loss = loss.item()
 
         # NOTE: this depends on batch size, i.e. stops if 
         #       the _combined_ loss satisfies the criterion
-        if loss < self.stop_crit:
+        if loss < self.loss_stop_crit:
             self.stop = True
 
         return {'losses/train': loss}
@@ -76,9 +81,14 @@ class SingleStepInverter(BaseInverter):
         batch_noise = self.make_noise(batch_x_0)
         
         # iteratively invert
-        for iter in range(self.n_iters):
+        pbar = tqdm(range(self.n_iters))
+        for iter in pbar:
             batch_x_0_hat = self.denoise(denoiser, batch_noise, batch_x_0)
-            self.step(batch_x_0, batch_x_0_hat)
+            loss_dict = self.step(batch_x_0, batch_x_0_hat)
+            loss = loss_dict["losses/train"]
+            pbar.set_description(f"{loss=}")
+
+        log.info(f"Terminating inversion at {iter=} with {loss=}")
 
         # return noise that inverts the image
         return batch_noise

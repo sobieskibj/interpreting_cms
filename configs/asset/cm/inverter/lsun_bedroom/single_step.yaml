@@ -1,0 +1,15 @@
+_target_: asset.inverter.SingleStepInverter
+optimizer_partial:
+  _partial_: true
+  _target_: torch.optim.AdamW
+  lr: 0.01
+loss_stop_crit: 0.001
+n_iters: 1024
+t: 151
+eval_ts: [151]
+sigmas:
+  _target_: utils.cm.get_sigmas_karras_
+  steps: 151
+  rho: ${diffusion.rho}
+  sigma_min: ${diffusion.sigma_min}
+  sigma_max: ${diffusion.sigma_max}

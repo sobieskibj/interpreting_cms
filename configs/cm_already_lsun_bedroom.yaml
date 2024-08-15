@@ -1,0 +1,29 @@
+defaults:
+  - _self_
+  - model: cm/lsun_bedroom/already
+  - diffusion: cm/lsun_bedroom/sampling
+  - dataset: cm/lsun_bedroom/already
+  - optimizer: cm/lsun_bedroom/already/radam
+  - asset@inverter: cm/inverter/lsun_bedroom/single_step
+  - asset@already_loss: cm/loss/already
+  - asset@h_move: cm/h_move/lsun_bedroom/already
+
+exp:
+  run_func: 
+    _target_: experiment.run_already
+  seed: 42
+  log_dir: # set during runtime to automatically created dir
+  
+  n_iters: 4096
+  text_source: "a bedroom"
+  text_target: "a princess bedroom"
+  log_every: 128
+  path_dump_noise: results/lsun_bedroom
+
+fabric:
+  _target_: lightning.Fabric
+  num_nodes: 1
+  devices: 1
+
+wandb:
+  project: icm

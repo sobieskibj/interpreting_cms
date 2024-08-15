@@ -270,7 +270,7 @@ class AttentionBlock(nn.Module):
         num_heads=1,
         num_head_channels=-1,
         use_checkpoint=False,
-        attention_type="flash",
+        attention_type="not",# attention_type="flash",
         encoder_channels=None,
         dims=2,
         channels_last=False,
@@ -358,7 +358,7 @@ class QKVFlashAttention(nn.Module):
         assert self.head_dim in [16, 32, 64], "Only support head_dim == 16, 32, or 64"
 
         self.inner_attn = FlashAttention(
-            attention_dropout=attention_dropout, **factory_kwargs
+            attention_dropout=attention_dropout, # **factory_kwargs
         )
         self.rearrange = rearrange
 
@@ -367,7 +367,7 @@ class QKVFlashAttention(nn.Module):
             qkv, "b (three h d) s -> b s three h d", three=3, h=self.num_heads
         )
         qkv, _ = self.inner_attn(
-            qkv,
+            qkv.contiguous(),
             key_padding_mask=key_padding_mask,
             need_weights=need_weights,
             causal=self.causal,
@@ -572,7 +572,8 @@ class UNetModelHMove(nn.Module):
         resblock_updown=False,
         use_new_attention_order=False,
         train = True,
-        path_ckpt = None
+        path_ckpt = None,
+        attention_type = "flash"
     ):
         super().__init__()
 
@@ -634,6 +635,7 @@ class UNetModelHMove(nn.Module):
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
                             use_new_attention_order=use_new_attention_order,
+                            attention_type=attention_type
                         )
                     )
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
@@ -679,6 +681,7 @@ class UNetModelHMove(nn.Module):
                 num_heads=num_heads,
                 num_head_channels=num_head_channels,
                 use_new_attention_order=use_new_attention_order,
+                attention_type=attention_type
             ),
             ResBlock(
                 ch,
@@ -715,6 +718,7 @@ class UNetModelHMove(nn.Module):
                             num_heads=num_heads_upsample,
                             num_head_channels=num_head_channels,
                             use_new_attention_order=use_new_attention_order,
+                            attention_type=attention_type
                         )
                     )
                 if level and i == num_res_blocks:

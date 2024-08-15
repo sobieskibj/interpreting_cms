@@ -1,0 +1,4 @@
+_target_: asset.AlreadyLoss
+model_id: ViT-B/16
+lambda_clip: 1.0 
+lambda_rec: 1.0
