@@ -130,4 +130,7 @@ def run(config: DictConfig):
                 pbar.set_description(f"already_loss={loss.item()}")
 
                 if iter % log_every == 0:
-                    wandb.log({"images/modified": wandb.Image(normalize(batch_x_edit))})
+                    wandb.log({
+                        "images/modified": wandb.Image(normalize(batch_x_edit)),
+                        "h_move/norm": h_move.dir.norm().item(),
+                        "loss/already": loss.item()})

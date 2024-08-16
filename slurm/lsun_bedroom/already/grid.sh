@@ -6,7 +6,8 @@
 #SBATCH --mem=40G
 #SBATCH --time 24:00:00
 #SBATCH --job-name=icm
-#SBATCH --output=slurm_logs/icm-%A.log
+#SBATCH --array=0-7
+#SBATCH --output=slurm_logs/icm-%A-%a.log
 
 # echo file content to logs
 script_path=$(readlink -f "$0")
@@ -18,6 +19,7 @@ source /etc/profile.d/slurm.sh
 # activate env
 source /raid/shared/$USER/conda/etc/profile.d/conda.sh
 conda activate icm
+
 
 # run exp
 cd /home2/faculty/bsobieski/icm
@@ -69,6 +71,9 @@ ID_TO_SHAPE=(
 ["output_17"]="[256, 256, 256]" \
 )
 
+TS=(5 25 45 65 85 105 125 135)
+T=${TS[SLURM_ARRAY_TASK_ID]}
+
 for IDX in "${!ID_TO_SHAPE[@]}"
 do
     srun python src/main.py \
@@ -77,5 +82,6 @@ do
     model.use_fp16=false \
     model.attention_type=null \
     h_move.id=$IDX \
-    "h_move.shape=${ID_TO_SHAPE[$IDX]}"
+    "h_move.shape=${ID_TO_SHAPE[$IDX]}" \
+    inverter.t=$T
 done
