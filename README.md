@@ -30,76 +30,68 @@ pip install lightning wandb tensorboard
 
 This ensures that both the legacy CMs code and new codebase can be run with the same environment.
 
-## Test run
+## Reproducing the results
 
-After creating the virtual environment, you can perform a test run by sampling images on imagenet.
-
-Start with downloading the checkpoint
+To reproduce the results, simply run
 
 ```sh
-mkdir weights
-cd weights
-wget https://openaipublic.blob.core.windows.net/consistency/ct_imagenet64.pt
-```
+export HYDRA_FULL_ERROR=1
+export WANDB_MODE=online
 
-To run sampling using our codebase, use
+declare -A ID_TO_SHAPE
 
-```sh
-HYDRA_FULL_ERROR=1 python src/main.py --config-name cm_sampling_imagenet
-```
+ID_TO_SHAPE=(
+["input_0"]="[256, 256, 256]" \
+["input_1"]="[256, 256, 256]" \
+["input_2"]="[256, 256, 256]" \
+["input_3"]="[256, 128, 128]" \
+["input_4"]="[256, 128, 128]" \
+["input_5"]="[256, 128, 128]" \
+["input_6"]="[256, 64, 64]" \
+["input_7"]="[512, 64, 64]" \
+["input_8"]="[512, 64, 64]" \
+["input_9"]="[512, 32, 32]" \
+["input_10"]="[512, 32, 32]" \
+["input_11"]="[512, 32, 32]" \
+["input_12"]="[512, 16, 16]" \
+["input_13"]="[1024, 16, 16]" \
+["input_14"]="[1024, 16, 16]" \
+["input_15"]="[1024, 8, 8]" \
+["input_16"]="[1024, 8, 8]" \
+["input_17"]="[1024, 8, 8]" \
+["middle_0"]="[1024, 8, 8]" \
+["output_0"]="[1024, 8, 8]" \
+["output_1"]="[1024, 8, 8]" \
+["output_2"]="[1024, 16, 16]" \
+["output_3"]="[1024, 16, 16]" \
+["output_4"]="[1024, 16, 16]" \
+["output_5"]="[1024, 32, 32]" \
+["output_6"]="[512, 32, 32]" \
+["output_7"]="[512, 32, 32]" \
+["output_8"]="[512, 64, 64]" \
+["output_9"]="[512, 64, 64]" \
+["output_10"]="[512, 64, 64]" \
+["output_11"]="[512, 128, 128]" \
+["output_12"]="[256, 128, 128]" \
+["output_13"]="[256, 128, 128]" \
+["output_14"]="[256, 256, 256]" \
+["output_15"]="[256, 256, 256]" \
+["output_16"]="[256, 256, 256]" \
+["output_17"]="[256, 256, 256]" \
+)
 
-To run sampling with old codebase, use
+TS=(5 25 45 65 85 105 125 135)
+T=${TS[SLURM_ARRAY_TASK_ID]}
 
-```sh
-cd _legacy
-
-mpiexec -n 1 python scripts/image_sample.py \
---batch_size 256 \
---training_mode consistency_distillation \
---sampler onestep \
---model_path ../weights/ct_imagenet64.pt \
---attention_resolutions 32,16,8 \
---class_cond True \
---use_scale_shift_norm True \
---dropout 0.0 \
---image_size 64 \
---num_channels 192 \
---num_head_channels 64 \
---num_res_blocks 3 \
---num_samples 500 \
---resblock_updown True \
---use_fp16 True \
---weight_schedule uniform
-```
-
-## Experiments
-
-Ready-to-use configs for the following experiments are available:
-
-- sampling - sample images using a pretrained CM
-    - using one-step sampler
-    ```sh
-    python src/main.py --config-name cm_sampling_onestep_imagenet
-    ```
-    - using multi-step sampler
-    ```sh
-    python src/main.py --config-name cm_sampling_multistep_imagenet
-    ```
-- h-move - move the representation of a given UNet block along a random direction during sampling from a fixed noise
-    - using one-step sampler
-    ```sh
-    python src/main.py --config-name cm_h_move_onestep_imagenet
-    ```
-    - using multi-step sampler
-    ```sh
-    python src/main.py --config-name cm_h_move_multistep_imagenet
-    ```
-
-## Tips
-
-To avoid conflicts with packages named in the same way as dirs in root, use
-
-```python
-import importlib
-hf_datasets = importlib.import_module('datasets')
+for IDX in "${!ID_TO_SHAPE[@]}"
+do
+    srun python src/main.py \
+    --config-name cm_already_lsun_bedroom \
+    inverter.n_iters=8192 \
+    model.use_fp16=false \
+    model.attention_type=null \
+    h_move.id=$IDX \
+    "h_move.shape=${ID_TO_SHAPE[$IDX]}" \
+    inverter.t=$T
+done
 ```
